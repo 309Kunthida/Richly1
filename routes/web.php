@@ -10,6 +10,7 @@ use App\Http\Controllers\TransactionController;
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
 
+Route::get('/api/transactions', [TransactionController::class, 'index']);
 
 Route::get('/', function () {
     return Inertia::render('Home');

@@ -14,10 +14,28 @@ const categories = [
 
 const AddTransaction = () => {
     const [amount, setAmount] = useState("");
+    const [note, setNote] = useState(""); // 🟡 ช่องกรอกรายละเอียด
     const [category, setCategory] = useState(categories[0].id);
 
-    const handleNumberPress = (num: string) => {
-        setAmount((prev) => prev + num);
+    const handleCalculate = () => {
+        try {
+            const result = eval(amount);
+            if (!isNaN(result)) {
+                setAmount(result.toString());
+            }
+        } catch {
+            setAmount("Error");
+        }
+    };
+
+    const handleKeyPress = (key: string) => {
+        if (amount === "Error") setAmount("");
+
+        if (key === "=") {
+            handleCalculate();
+        } else {
+            setAmount((prev) => prev + key);
+        }
     };
 
     const handleDelete = () => {
@@ -25,27 +43,34 @@ const AddTransaction = () => {
     };
 
     const handleSubmit = () => {
-        router.post("/transactions", { category_id: category, amount });
+        if (amount === "" || amount === "Error") return;
+
+        router.post("/transactions", { category_id: category, amount, note }, {
+            onSuccess: () => {
+                router.visit("/dashboard");
+            }
+        });
     };
 
     return (
-        <div className="min-h-screen bg-pink-100">
+        <div className="min-h-screen bg-amber-50">
             {/* 🔹 Navbar ด้านบน */}
-            <div className="bg-pink-600 text-white p-4 flex justify-between items-center">
+            <div className="bg-amber-400 text-white p-4 flex justify-between items-center shadow-md">
                 <button onClick={() => history.back()} className="text-xl">❌</button>
-                <h2 className="text-lg font-semibold">ค่าใช้จ่าย</h2>
+                <h2 className="text-lg font-semibold">เพิ่มธุรกรรม</h2>
                 <button onClick={handleSubmit} className="text-xl">✔️</button>
             </div>
 
             {/* 🔹 เลือกหมวดหมู่ */}
-            <div className="bg-white p-4 rounded-lg shadow mx-4 mt-4">
+            <div className="bg-white p-4 rounded-lg shadow-lg mx-4 mt-4">
+                <h3 className="text-lg font-semibold text-gray-700 mb-2">เลือกหมวดหมู่</h3>
                 <div className="grid grid-cols-4 gap-4">
                     {categories.map((cat) => (
                         <button
                             key={cat.id}
                             onClick={() => setCategory(cat.id)}
-                            className={`p-3 rounded-lg shadow text-center ${
-                                category === cat.id ? "bg-pink-300 text-white" : "bg-gray-100 text-gray-700"
+                            className={`p-3 rounded-lg shadow-md text-center transition ${
+                                category === cat.id ? "bg-amber-400 text-white" : "bg-gray-100 text-gray-700 hover:bg-amber-100"
                             }`}
                         >
                             <span className="text-2xl">{cat.icon}</span>
@@ -55,29 +80,93 @@ const AddTransaction = () => {
                 </div>
             </div>
 
-            {/* 🔹 คีย์แพดสำหรับใส่จำนวนเงิน */}
-            <div className="bg-pink-500 text-white p-6 mt-6 rounded-t-lg">
-                <input
-                    type="text"
-                    value={amount}
-                    readOnly
-                    className="w-full text-3xl text-center bg-transparent focus:outline-none"
-                />
+            {/* 🔹 ช่องกรอกข้อมูล (จำนวนเงิน + รายละเอียด) ย้ายมาอยู่ตรงคีย์แพด */}
+            <div className="bg-white p-4 rounded-lg shadow-lg mx-4 mt-4">
+                <h3 className="text-lg font-semibold text-gray-700 mb-2">รายละเอียดธุรกรรม</h3>
 
+                <div className="grid grid-cols-2 gap-4">
+                    {/* ช่องใส่จำนวนเงิน */}
+                    <input
+                        type="text"
+                        value={amount}
+                        readOnly
+                        className="w-full p-4 text-3xl text-center bg-amber-100 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                        placeholder="฿0.00"
+                    />
+
+                    {/* ช่องใส่รายละเอียด */}
+                    <input
+                        type="text"
+                        value={note}
+                        onChange={(e) => setNote(e.target.value)}
+                        className="w-full p-4 text-lg bg-amber-100 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                        placeholder="รายละเอียดเพิ่มเติม..."
+                    />
+                </div>
+            </div>
+
+            {/* 🔹 คีย์แพดใหม่ */}
+            <div className="bg-amber-200 text-white p-6 mt-6 rounded-t-lg shadow-lg">
+                {/* 🔹 คีย์แพดหลัก */}
                 <div className="grid grid-cols-4 gap-3 mt-4">
-                    {["7", "8", "9", "x", "4", "5", "6", "/", "1", "2", "3", "-", ".", "0", "✅", "+"].map((key) => (
+                    {/* คอลัมน์ตัวเลข */}
+                    <div className="col-span-3 grid grid-cols-3 gap-3">
+                        {["7", "8", "9", "4", "5", "6", "1", "2", "3"].map((key) => (
+                            <button
+                                key={key}
+                                onClick={() => handleKeyPress(key)}
+                                className="p-4 rounded-lg text-2xl font-semibold shadow-md bg-amber-100 hover:bg-amber-200 text-gray-800"
+                            >
+                                {key}
+                            </button>
+                        ))}
                         <button
-                            key={key}
-                            onClick={() => (key === "✅" ? handleSubmit() : handleNumberPress(key))}
-                            className={`p-4 rounded-lg text-2xl ${
-                                key === "✅" ? "bg-green-400" : "bg-pink-300"
-                            } shadow-lg`}
+                            className="col-span-2 p-4 rounded-lg text-2xl font-semibold shadow-md bg-amber-100 hover:bg-amber-200 text-gray-800"
+                            onClick={() => handleKeyPress("0")}
                         >
-                            {key}
+                            0
                         </button>
-                    ))}
-                    <button onClick={handleDelete} className="col-span-4 p-4 bg-red-400 rounded-lg text-2xl shadow-lg">
-                        ❌ ลบ
+                        <button
+                            onClick={() => handleKeyPress(".")}
+                            className="p-4 rounded-lg text-2xl font-semibold shadow-md bg-amber-100 hover:bg-amber-200 text-gray-800"
+                        >
+                            .
+                        </button>
+                    </div>
+
+                    {/* คอลัมน์เครื่องหมายคำนวณ */}
+                    <div className="grid grid-rows-5 gap-3">
+                        {["+", "-", "*", "/"].map((key) => (
+                            <button
+                                key={key}
+                                onClick={() => handleKeyPress(key)}
+                                className="p-4 rounded-lg text-2xl font-semibold shadow-md bg-amber-400 hover:bg-amber-500 text-gray-800"
+                            >
+                                {key}
+                            </button>
+                        ))}
+                        <button
+                            onClick={() => handleKeyPress("=")}
+                            className="p-4 rounded-lg text-2xl font-semibold shadow-md bg-green-500 hover:bg-green-600"
+                        >
+                            =
+                        </button>
+                    </div>
+                </div>
+
+                {/* 🔹 แถวล่างสุด: ลบค่า และบันทึก */}
+                <div className="grid grid-cols-2 gap-3 mt-3">
+                    <button
+                        onClick={handleDelete}
+                        className="p-4 rounded-lg text-2xl font-semibold shadow-md bg-red-500 hover:bg-red-600"
+                    >
+                        ← ลบ
+                    </button>
+                    <button
+                        onClick={handleSubmit}
+                        className="p-4 rounded-lg text-2xl font-semibold shadow-md bg-green-500 hover:bg-green-600"
+                    >
+                        ✅ บันทึก
                     </button>
                 </div>
             </div>
