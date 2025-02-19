@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link } from '@inertiajs/react';
 
+
+
 // 🟡 กำหนด Type ของ Transaction
 interface Transaction {
     id: number;
@@ -32,6 +34,39 @@ export default function Dashboard() {
             setTransactions(data.transactions || []);
         } catch (error) {
             console.error("❌ เกิดข้อผิดพลาดในการโหลดธุรกรรม:", error);
+        }
+    };
+
+    // ✅ ลบรายการธุรกรรม
+    const handleDelete = async (id: number) => {
+        if (!confirm("คุณต้องการลบรายการนี้ใช่หรือไม่?")) return;
+
+        try {
+            const csrfMetaTag = document.querySelector('meta[name="csrf-token"]');
+            if (!csrfMetaTag) {
+                throw new Error("CSRF token not found");
+            }
+
+            const csrfToken = csrfMetaTag.getAttribute("content");
+            if (!csrfToken) {
+                throw new Error("CSRF token is null");
+            }
+
+            const response = await fetch(`/transactions/${id}`, {
+                method: "DELETE",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRF-TOKEN": csrfToken, // ✅ ใช้ค่าแน่ชัดที่ไม่เป็น null
+                },
+            });
+
+            if (!response.ok) throw new Error("เกิดข้อผิดพลาดในการลบ");
+
+            alert("ลบรายการสำเร็จ!");
+            fetchTransactions(); // โหลดข้อมูลใหม่หลังจากลบ
+        } catch (error) {
+            console.error("❌ ลบรายการไม่สำเร็จ:", error);
+            alert("เกิดข้อผิดพลาดในการลบ");
         }
     };
 
@@ -161,6 +196,13 @@ export default function Dashboard() {
                                         <span className={`text-${transaction.amount > 0 ? "green" : "red"}-500`}>
                                             {transaction.amount > 0 ? `+฿${Number(transaction.amount).toFixed(2)}` : `-฿${Math.abs(Number(transaction.amount)).toFixed(2)}`}
                                         </span>
+
+                                        {/* 🟡 ปุ่มแก้ไขและลบ */}
+                                        <div className="flex items-center">
+                                            <Link href={`/transactions/edit/${transaction.id}`} className="text-blue-500 mr-2">แก้ไข✏️</Link>
+                                            <button onClick={() => handleDelete(transaction.id)} className="text-red-500 ml-2">ลบ🚮</button>
+
+                                        </div>
                                     </div>
                                 );
 
@@ -174,8 +216,8 @@ export default function Dashboard() {
             </div>
 
             {/* 🔹 Floating Button (ปุ่มลอย) สำหรับเพิ่มธุรกรรม */}
-            <Link href="/transactions/add" className="fixed bottom-16 right-4 bg-amber-500 p-4 rounded-full shadow-lg">
-                ✏️
+            <Link href="/transactions/add" className="fixed bottom-16 right-4 bg-amber-400 p-4 rounded-full shadow-lg">
+                ➕
             </Link>
         </AuthenticatedLayout>
     );

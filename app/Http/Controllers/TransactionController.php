@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use Inertia\Inertia;
+use Inertia\Response;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
 use App\Models\Transaction;
@@ -111,11 +113,26 @@ class TransactionController extends Controller
     }
 
     /**
+     * Show the form for editing the specified resource.
+     */
+    public function edit($id): Response
+    {
+        $transaction = Transaction::findOrFail($id);
+        return Inertia::render('EditTransaction', [
+            'transaction' => $transaction
+        ]);
+    }
+
+    /**
      * Update the specified resource in storage.
      */
     public function update(Request $request, string $id)
     {
-        //
+        //แก้ไขข้อมูล อัพเดต
+        $transaction = Transaction::findOrFail($id);
+        $transaction->update($request->all());
+
+        return response()->json(['message' => 'อัปเดตสำเร็จ']);
     }
 
     /**
@@ -123,6 +140,10 @@ class TransactionController extends Controller
      */
     public function destroy(string $id)
     {
-        //
+        //ลบข้อมูลธุรกรรม
+        $transaction = Transaction::findOrFail($id);
+        $transaction->delete();
+
+        return response()->json(['message' => 'ลบธุรกรรมสำเร็จ']);
     }
 }

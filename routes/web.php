@@ -15,6 +15,10 @@ Route::get('/', function () {
     return Inertia::render('Home');
 })->name('home'); // ✅ กำหนดให้ Home เป็นหน้าหลัก
 
+Route::get('/transactions/edit/{id}', [TransactionController::class, 'edit'])->name('transactions.edit')->middleware('web'); // หน้าแก้ไข
+Route::put('/transactions/{id}', [TransactionController::class, 'update'])->name('transactions.update'); // อัปเดตข้อมูล
+Route::delete('/transactions/{id}', [TransactionController::class, 'destroy'])->name('transactions.destroy')->middleware('web'); // ลบ
+
 
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', fn () => Inertia::render('Dashboard'))->name('dashboard');
