@@ -26,13 +26,15 @@ export default function Dashboard() {
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
             const data = await response.json();
-            console.log("✅ รายการธุรกรรมที่โหลดมา:", data);
+
+            console.log("📥 ข้อมูลธุรกรรมจาก API:", data.transactions); // ✅ ตรวจสอบค่าที่ API ส่งมา
 
             setTransactions(data.transactions || []);
         } catch (error) {
             console.error("❌ เกิดข้อผิดพลาดในการโหลดธุรกรรม:", error);
         }
     };
+
 
     // ✅ โหลดข้อมูลเมื่อเปิดหน้า และอัปเดตเมื่อมีการเพิ่มธุรกรรม
     useEffect(() => {
@@ -103,13 +105,28 @@ export default function Dashboard() {
                         {sortedTransactions.length > 0 ? (
                             sortedTransactions.reduce((acc: JSX.Element[], transaction, index) => {
                                 // 🟡 แปลงวันที่ให้เป็นรูปแบบไทย
-                                const transactionDate = transaction.date
-                                ? new Date(transaction.date).toLocaleDateString("th-TH", {
-                                    day: "2-digit",
-                                    month: "long",
-                                    year: "numeric"
-                                })
-                                : "ไม่ระบุวันที่"; // ถ้าไม่มีวัน ให้แสดง "ไม่ระบุวันที่"
+                                let transactionDate = "ไม่ระบุวันที่";
+                                let transactionTime = "ไม่ระบุเวลา";
+
+                                if (transaction.date) {
+                                    const dateObj = new Date(transaction.date);
+
+                                    if (!isNaN(dateObj.getTime())) { // ✅ ตรวจสอบว่าเป็นวันที่ถูกต้อง
+                                        transactionDate = dateObj.toLocaleDateString("th-TH", {
+                                            day: "2-digit",
+                                            month: "long",
+                                            year: "numeric"
+                                        });
+
+                                        transactionTime = dateObj.toLocaleTimeString("th-TH", {
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                            second: "2-digit"
+                                        });
+                                    }
+                                }
+
+
 
 
                                 // 🟡 เช็คว่าต้องเพิ่มหัวข้อวันใหม่หรือไม่
@@ -129,7 +146,11 @@ export default function Dashboard() {
                                             <span className="text-xl">{transaction.icon || "💰"}</span>
                                             <div className="ml-3">
                                                 <p className="font-semibold text-gray-800">{transaction.category || "หมวดหมู่"}</p>
-                                                <p className="text-gray-500 text-sm">{transaction.description || "ไม่มีรายละเอียด"}</p>
+                                                <p className="text-gray-500 text-sm">
+                                                    {transaction.description || "ไม่มีรายละเอียด"} <br />
+                                                    🕒 {transactionDate} {transactionTime}
+                                                </p>
+
                                             </div>
                                         </div>
                                         <span className={`text-${transaction.amount > 0 ? "green" : "red"}-500`}>
