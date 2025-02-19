@@ -9,7 +9,7 @@ interface Transaction {
     icon: string;
     description: string;
     amount: number;
-    date: string;
+    transaction_date: string;
 }
 
 export default function Dashboard() {
@@ -27,13 +27,14 @@ export default function Dashboard() {
 
             const data = await response.json();
 
-            console.log("📥 ข้อมูลธุรกรรมจาก API:", data.transactions); // ✅ ตรวจสอบค่าที่ API ส่งมา
+            console.log("📥 ข้อมูลธุรกรรมจาก API:", data.transactions); // ✅ Debug API
 
             setTransactions(data.transactions || []);
         } catch (error) {
             console.error("❌ เกิดข้อผิดพลาดในการโหลดธุรกรรม:", error);
         }
     };
+
 
 
     // ✅ โหลดข้อมูลเมื่อเปิดหน้า และอัปเดตเมื่อมีการเพิ่มธุรกรรม
@@ -60,8 +61,9 @@ export default function Dashboard() {
 
     // ✅ เรียงรายการธุรกรรมให้ใหม่สุดอยู่ด้านบนสุด (ตามวันและเวลา)
     const sortedTransactions = [...transactions].sort((a, b) => {
-        return new Date(b?.date || 0).getTime() - new Date(a?.date || 0).getTime();
+        return new Date(b?.transaction_date || 0).getTime() - new Date(a?.transaction_date || 0).getTime();
     });
+
 
 
     return (
@@ -105,13 +107,16 @@ export default function Dashboard() {
                         {sortedTransactions.length > 0 ? (
                             sortedTransactions.reduce((acc: JSX.Element[], transaction, index) => {
                                 // 🟡 แปลงวันที่ให้เป็นรูปแบบไทย
+                                console.log("📅 ตรวจสอบ transaction.date:", transaction.transaction_date);
+
                                 let transactionDate = "ไม่ระบุวันที่";
                                 let transactionTime = "ไม่ระบุเวลา";
 
-                                if (transaction.date) {
-                                    const dateObj = new Date(transaction.date);
+                                if (transaction.transaction_date) {
+                                    const dateObj = new Date(transaction.transaction_date);
 
-                                    if (!isNaN(dateObj.getTime())) { // ✅ ตรวจสอบว่าเป็นวันที่ถูกต้อง
+
+                                    if (!isNaN(dateObj.getTime())) {
                                         transactionDate = dateObj.toLocaleDateString("th-TH", {
                                             day: "2-digit",
                                             month: "long",
@@ -127,17 +132,17 @@ export default function Dashboard() {
                                 }
 
 
-
-
                                 // 🟡 เช็คว่าต้องเพิ่มหัวข้อวันใหม่หรือไม่
-                                if (index === 0 || transactions[index - 1]?.date?.split("T")[0] !== transaction.date?.split("T")[0]) {
-
+                                if (index === 0 || transactions[index - 1]?.transaction_date?.split("T")[0] !== transaction.transaction_date?.split("T")[0]) {
                                     acc.push(
-                                        <h4 key={`date-${transaction.date}`} className="text-md font-bold text-gray-600 mt-4">
+                                        <h4 key={`date-${transaction.transaction_date}`} className="text-md font-bold text-gray-600 mt-4">
                                             {transactionDate}
                                         </h4>
                                     );
                                 }
+
+
+
 
                                 // 🟡 แสดงรายการธุรกรรม
                                 acc.push(
