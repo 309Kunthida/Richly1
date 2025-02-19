@@ -24,9 +24,10 @@ const AddTransaction = () => {
 
     const categories = transactionType === "expense" ? expenseCategories : incomeCategories;
 
+    // ✅ ใช้ `Function()` แทน `eval()` เพื่อความปลอดภัย
     const handleCalculate = () => {
         try {
-            const result = eval(amount);
+            const result = new Function(`return ${amount}`)();
             if (!isNaN(result)) {
                 setAmount(result.toString());
             } else {
@@ -51,23 +52,25 @@ const AddTransaction = () => {
         setAmount((prev) => prev.slice(0, -1));
     };
 
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
-
     const handleSubmit = async () => {
         console.log("🔹 กำลังส่งข้อมูลธุรกรรม...");
 
-        if (!amount || amount === "Error") return;
+        if (!amount || amount === "Error") {
+            alert("กรุณากรอกจำนวนเงินให้ถูกต้อง");
+            return;
+        }
 
         const finalAmount = transactionType === "expense" ? `-${Math.abs(Number(amount))}` : `${Math.abs(Number(amount))}`;
-        const transaction_date = new Date().toISOString().split("T")[0];
+
+        // ✅ บันทึกวันและเวลาให้ถูกต้อง
+        const transaction_date = new Date().toISOString().slice(0, 19).replace("T", " "); 
+
 
         // ✅ ตรวจสอบค่าหมวดหมู่ที่เลือก
         const selectedCategory = categories.find((cat) => cat.id === category);
-        const categoryName = selectedCategory ? selectedCategory.name : category; // ✅ ดึงชื่อหมวดหมู่จากรายการที่เลือก
-
-        if (!categoryName || typeof categoryName !== "string") {
-            console.error("❌ category_name ไม่ถูกต้อง:", categoryName);
-            return; // หยุดทำงานถ้า category_name ไม่ใช่ string
+        if (!selectedCategory) {
+            alert("กรุณาเลือกหมวดหมู่ที่ถูกต้อง");
+            return;
         }
 
         try {
@@ -79,7 +82,7 @@ const AddTransaction = () => {
                     "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || "",
                 },
                 body: JSON.stringify({
-                    category_name: categoryName, // ✅ ส่งค่า category_name ที่เป็น string เท่านั้น
+                    category_name: selectedCategory.name,
                     amount: finalAmount,
                     transaction_type: transactionType,
                     description: note,
@@ -92,6 +95,7 @@ const AddTransaction = () => {
 
             if (response.ok) {
                 window.dispatchEvent(new Event("transactionAdded"));
+                router.visit("/dashboard"); // ✅ กลับไปหน้า Dashboard หลังจากบันทึกสำเร็จ
             } else {
                 console.error("❌ บันทึกธุรกรรมล้มเหลว:", result);
             }
@@ -113,17 +117,13 @@ const AddTransaction = () => {
             <div className="flex justify-center mt-4">
                 <button
                     onClick={() => setTransactionType("income")}
-                    className={`px-4 py-2 mx-2 rounded-lg shadow-md text-lg font-semibold ${
-                        transactionType === "income" ? "bg-green-400 text-white" : "bg-gray-200 text-gray-700"
-                    }`}
+                    className={`px-4 py-2 mx-2 rounded-lg shadow-md text-lg font-semibold ${transactionType === "income" ? "bg-green-400 text-white" : "bg-gray-200 text-gray-700"}`}
                 >
                     รายรับ 💰
                 </button>
                 <button
                     onClick={() => setTransactionType("expense")}
-                    className={`px-4 py-2 mx-2 rounded-lg shadow-md text-lg font-semibold ${
-                        transactionType === "expense" ? "bg-red-400 text-white" : "bg-gray-200 text-gray-700"
-                    }`}
+                    className={`px-4 py-2 mx-2 rounded-lg shadow-md text-lg font-semibold ${transactionType === "expense" ? "bg-red-400 text-white" : "bg-gray-200 text-gray-700"}`}
                 >
                     รายจ่าย 💸
                 </button>
@@ -137,9 +137,7 @@ const AddTransaction = () => {
                         <button
                             key={cat.id}
                             onClick={() => setCategory(cat.id)}
-                            className={`p-3 rounded-lg shadow-md text-center ${
-                                category === cat.id ? "bg-amber-400 text-white" : "bg-gray-100 text-gray-700 hover:bg-amber-100"
-                            }`}
+                            className={`p-3 rounded-lg shadow-md text-center ${category === cat.id ? "bg-amber-400 text-white" : "bg-gray-100 text-gray-700 hover:bg-amber-100"}`}
                         >
                             <span className="text-2xl">{cat.icon}</span>
                             <p className="text-sm mt-1">{cat.name}</p>
@@ -151,13 +149,11 @@ const AddTransaction = () => {
             {/* 🔹 ช่องกรอกข้อมูล */}
             <div className="bg-white p-4 rounded-lg shadow-lg mx-4 mt-4">
                 <h3 className="text-lg font-semibold text-gray-700 mb-2">รายละเอียดธุรกรรม</h3>
-                <div className="grid grid-cols-2 gap-4">
-                    <input type="text" value={amount} readOnly className="w-full p-4 text-3xl text-center bg-amber-100 rounded-lg" placeholder="฿0.00" />
-                    <input type="text" value={note} onChange={(e) => setNote(e.target.value)} className="w-full p-4 text-lg bg-amber-100 rounded-lg" placeholder="รายละเอียดเพิ่มเติม..." />
-                </div>
+                <input type="text" value={amount} readOnly className="w-full p-4 text-3xl text-center bg-amber-100 rounded-lg" placeholder="฿0.00" />
+                <input type="text" value={note} onChange={(e) => setNote(e.target.value)} className="w-full p-4 text-lg bg-amber-100 rounded-lg mt-2" placeholder="รายละเอียดเพิ่มเติม..." />
             </div>
 
-            {/* 🔹 คีย์แพด */}
+            {/* 🔹 คีย์แพด & ปุ่มลบ/บันทึก */}
             <div className="bg-amber-200 text-black p-6 mt-6 rounded-t-lg shadow-lg">
                 <div className="grid grid-cols-4 gap-3 mt-4">
                     {["7", "8", "9", "+", "4", "5", "6", "-", "1", "2", "3", "*", ".", "0", "=", "/"].map((key) => (
@@ -167,7 +163,6 @@ const AddTransaction = () => {
                     ))}
                 </div>
 
-                {/* 🔹 ปุ่มลบ และ บันทึก */}
                 <div className="grid grid-cols-2 gap-3 mt-3">
                     <button onClick={handleDelete} className="p-4 rounded-lg text-2xl font-semibold bg-red-500 hover:bg-red-600 text-white">← ลบ</button>
                     <button onClick={handleSubmit} className="p-4 rounded-lg text-2xl font-semibold bg-green-500 hover:bg-green-600 text-white">✅ บันทึก</button>

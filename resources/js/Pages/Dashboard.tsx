@@ -37,7 +37,6 @@ export default function Dashboard() {
     // ✅ โหลดข้อมูลเมื่อเปิดหน้า และอัปเดตเมื่อมีการเพิ่มธุรกรรม
     useEffect(() => {
         fetchTransactions();
-
         window.addEventListener("transactionAdded", fetchTransactions);
         return () => window.removeEventListener("transactionAdded", fetchTransactions);
     }, []);
@@ -46,16 +45,21 @@ export default function Dashboard() {
     useEffect(() => {
         const income = transactions
             .filter((t) => t.amount > 0)
-            .reduce((acc, t) => acc + Number(t.amount), 0) || 0; // ป้องกัน undefined
+            .reduce((acc, t) => acc + Number(t.amount), 0) || 0;
 
         const expense = transactions
             .filter((t) => t.amount < 0)
-            .reduce((acc, t) => acc + Number(t.amount), 0) || 0; // ป้องกัน undefined
+            .reduce((acc, t) => acc + Number(t.amount), 0) || 0;
 
         setTotalIncome(income);
         setTotalExpense(expense);
         setTotalBalance(income + expense);
     }, [transactions]);
+
+    // ✅ เรียงรายการธุรกรรมให้ใหม่สุดอยู่ด้านบนสุด (ตามวันและเวลา)
+    const sortedTransactions = [...transactions].sort((a, b) => {
+        return new Date(b?.date || 0).getTime() - new Date(a?.date || 0).getTime();
+    });
 
 
     return (
@@ -96,17 +100,21 @@ export default function Dashboard() {
                 <div className="bg-white mx-4 my-4 p-4 rounded-lg shadow-lg">
                     <h3 className="text-lg font-semibold text-gray-700">รายการธุรกรรมล่าสุด</h3>
                     <div className="mt-2">
-                        {transactions.length > 0 ? (
-                            transactions.reduce((acc: JSX.Element[], transaction, index) => {
+                        {sortedTransactions.length > 0 ? (
+                            sortedTransactions.reduce((acc: JSX.Element[], transaction, index) => {
                                 // 🟡 แปลงวันที่ให้เป็นรูปแบบไทย
-                                const transactionDate = new Date(transaction.date).toLocaleDateString("th-TH", {
+                                const transactionDate = transaction.date
+                                ? new Date(transaction.date).toLocaleDateString("th-TH", {
                                     day: "2-digit",
                                     month: "long",
                                     year: "numeric"
-                                });
+                                })
+                                : "ไม่ระบุวันที่"; // ถ้าไม่มีวัน ให้แสดง "ไม่ระบุวันที่"
+
 
                                 // 🟡 เช็คว่าต้องเพิ่มหัวข้อวันใหม่หรือไม่
-                                if (index === 0 || transactions[index - 1].date !== transaction.date) {
+                                if (index === 0 || transactions[index - 1]?.date?.split("T")[0] !== transaction.date?.split("T")[0]) {
+
                                     acc.push(
                                         <h4 key={`date-${transaction.date}`} className="text-md font-bold text-gray-600 mt-4">
                                             {transactionDate}
