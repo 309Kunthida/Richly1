@@ -9,41 +9,54 @@ interface Transaction {
     icon: string;
     description: string;
     amount: number;
-    date: string; // 🟡 เพิ่มฟิลด์วันที่
+    date: string;
 }
 
 export default function Dashboard() {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [totalIncome, setTotalIncome] = useState<number>(0);
+    const [totalExpense, setTotalExpense] = useState<number>(0);
+    const [totalBalance, setTotalBalance] = useState<number>(0);
 
-    // ✅ คำนวณยอดรวม รายรับ รายจ่าย
-    const totalIncome = transactions.filter(t => t.amount > 0).reduce((sum, t) => sum + t.amount, 0);
-    const totalExpense = transactions.filter(t => t.amount < 0).reduce((sum, t) => sum + t.amount, 0);
-    const totalBalance = totalIncome + totalExpense;
-
-    // ฟังก์ชันโหลดข้อมูลธุรกรรม
+    // ✅ โหลดข้อมูลธุรกรรม
     const fetchTransactions = async () => {
+        console.log("🔄 กำลังโหลดข้อมูลธุรกรรม...");
         try {
-            const response = await fetch("/api/transactions");
-            let data: Transaction[] = await response.json();
+            const response = await fetch("/transactions");
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
-            // 🟡 แปลง amount เป็นตัวเลข ถ้าเป็น string
-            data = data.map((t) => ({
-                ...t,
-                amount: Number(t.amount) || 0, // ป้องกัน NaN ถ้า amount ไม่มีค่า
-            }));
+            const data = await response.json();
+            console.log("✅ รายการธุรกรรมที่โหลดมา:", data);
 
-            setTransactions(data);
+            setTransactions(data.transactions || []);
         } catch (error) {
-            console.error("❌ Error fetching transactions:", error);
+            console.error("❌ เกิดข้อผิดพลาดในการโหลดธุรกรรม:", error);
         }
     };
 
-
-
-    // โหลดข้อมูลธุรกรรมเมื่อหน้า Dashboard โหลด
+    // ✅ โหลดข้อมูลเมื่อเปิดหน้า และอัปเดตเมื่อมีการเพิ่มธุรกรรม
     useEffect(() => {
         fetchTransactions();
+
+        window.addEventListener("transactionAdded", fetchTransactions);
+        return () => window.removeEventListener("transactionAdded", fetchTransactions);
     }, []);
+
+    // ✅ คำนวณยอดรายรับ รายจ่าย และยอดรวม
+    useEffect(() => {
+        const income = transactions
+            .filter((t) => t.amount > 0)
+            .reduce((acc, t) => acc + Number(t.amount), 0) || 0; // ป้องกัน undefined
+
+        const expense = transactions
+            .filter((t) => t.amount < 0)
+            .reduce((acc, t) => acc + Number(t.amount), 0) || 0; // ป้องกัน undefined
+
+        setTotalIncome(income);
+        setTotalExpense(expense);
+        setTotalBalance(income + expense);
+    }, [transactions]);
+
 
     return (
         <AuthenticatedLayout>
@@ -66,12 +79,12 @@ export default function Dashboard() {
                     <div className="flex justify-between text-lg font-semibold">
                         <span className="text-gray-700">ยอดทั้งหมด</span>
                         <span className={totalBalance >= 0 ? "text-green-500" : "text-red-500"}>
-                            {totalBalance >= 0 ? `+฿${totalBalance}` : `-฿${Math.abs(totalBalance)}`}
+                            {totalBalance >= 0 ? `+฿${totalBalance.toFixed(2)}` : `-฿${Math.abs(totalBalance).toFixed(2)}`}
                         </span>
                     </div>
                     <div className="flex justify-between text-lg">
-                        <span className="text-green-500">+฿{totalIncome}</span>
-                        <span className="text-red-500">-฿{Math.abs(totalExpense)}</span>
+                        <span className="text-green-500">+฿{Number(totalIncome).toFixed(2)}</span>
+                        <span className="text-red-500">-฿{Math.abs(Number(totalExpense)).toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-gray-500 text-sm">
                         <span>รายได้</span>

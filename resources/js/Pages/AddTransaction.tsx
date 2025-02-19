@@ -51,12 +51,53 @@ const AddTransaction = () => {
         setAmount((prev) => prev.slice(0, -1));
     };
 
-    const handleSubmit = () => {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
+
+    const handleSubmit = async () => {
+        console.log("🔹 กำลังส่งข้อมูลธุรกรรม...");
+
         if (!amount || amount === "Error") return;
+
         const finalAmount = transactionType === "expense" ? `-${Math.abs(Number(amount))}` : `${Math.abs(Number(amount))}`;
-        router.post("/transactions", { category_id: category, amount: finalAmount, note }, {
-            onSuccess: () => router.visit("/dashboard"),
-        });
+        const transaction_date = new Date().toISOString().split("T")[0];
+
+        // ✅ ตรวจสอบค่าหมวดหมู่ที่เลือก
+        const selectedCategory = categories.find((cat) => cat.id === category);
+        const categoryName = selectedCategory ? selectedCategory.name : category; // ✅ ดึงชื่อหมวดหมู่จากรายการที่เลือก
+
+        if (!categoryName || typeof categoryName !== "string") {
+            console.error("❌ category_name ไม่ถูกต้อง:", categoryName);
+            return; // หยุดทำงานถ้า category_name ไม่ใช่ string
+        }
+
+        try {
+            const response = await fetch("/transactions", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || "",
+                },
+                body: JSON.stringify({
+                    category_name: categoryName, // ✅ ส่งค่า category_name ที่เป็น string เท่านั้น
+                    amount: finalAmount,
+                    transaction_type: transactionType,
+                    description: note,
+                    transaction_date,
+                }),
+            });
+
+            const result = await response.json();
+            console.log("✅ Response:", result);
+
+            if (response.ok) {
+                window.dispatchEvent(new Event("transactionAdded"));
+            } else {
+                console.error("❌ บันทึกธุรกรรมล้มเหลว:", result);
+            }
+        } catch (error) {
+            console.error("❌ Error:", error);
+        }
     };
 
     return (

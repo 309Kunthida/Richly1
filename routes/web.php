@@ -10,7 +10,6 @@ use App\Http\Controllers\TransactionController;
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
 
-Route::get('/api/transactions', [TransactionController::class, 'index']);
 
 Route::get('/', function () {
     return Inertia::render('Home');
@@ -24,6 +23,7 @@ Route::middleware(['auth'])->group(function () {
 Route::middleware(['auth'])->group(function () {
     Route::get('/transactions/add', fn () => Inertia::render('AddTransaction'))->name('transactions.add');
     Route::post('/transactions', [TransactionController::class, 'store'])->name('transactions.store');
+    Route::get('/transactions', [TransactionController::class, 'index']);
 });
 
 Route::middleware(['auth'])->group(function () {
