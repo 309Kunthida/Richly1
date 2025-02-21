@@ -26,7 +26,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/transactions', [TransactionController::class, 'index']);
 });
 
-
+Route::put('/transactions/{id}', [TransactionController::class, 'update']);
 Route::delete('/transactions/{id}', [TransactionController::class, 'destroy'])->name('transactions.destroy');
 
 Route::middleware(['auth'])->group(function () {

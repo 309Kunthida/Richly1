@@ -171,7 +171,23 @@ class TransactionController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        //
+        // 🔍 ค้นหาธุรกรรมที่ต้องการแก้ไข
+        $transaction = Transaction::find($id);
+        if (!$transaction) {
+            return response()->json(['message' => 'ไม่พบธุรกรรม'], 404);
+        }
+
+        // ✅ ตรวจสอบและอัปเดตข้อมูล
+        $request->validate([
+            'description' => 'required|string|max:255',
+            'amount' => 'required|numeric',
+        ]);
+
+        $transaction->description = $request->description;
+        $transaction->amount = $request->amount;
+        $transaction->save();
+
+        return response()->json(['message' => 'อัปเดตรายการสำเร็จ', 'transaction' => $transaction]);
     }
 
     /**
