@@ -7,6 +7,7 @@ const expenseCategories = [
     { id: 2, name: "การเดินทาง", icon: "🚗" },
     { id: 3, name: "ที่อยู่อาศัย", icon: "🏠" },
     { id: 4, name: "ของใช้", icon: "🛒" },
+    { id: 5, name: "อื่นๆ", icon: "🛠️" },
 ];
 
 const incomeCategories = [
@@ -18,20 +19,20 @@ const incomeCategories = [
 ];
 
 const AddTransaction = () => {
-    //const location = useLocation();
-    const params = new URLSearchParams(location.search);
+    const params = new URLSearchParams(window.location.search);
     const transactionId = params.get("id"); // ✅ ดึง `id` จาก URL
 
     const [amount, setAmount] = useState(""); // ✅ จำนวนเงิน
     const [note, setNote] = useState(""); // ✅ หมายเหตุ
     const [transactionType, setTransactionType] = useState<
         "expense" | "income"
-    >("expense"); // ✅ ประเภท รายรับ/รายจ่าย
+    >("expense");
     const [category, setCategory] = useState(expenseCategories[0].id); // ✅ หมวดหมู่
 
     const categories =
-        transactionType === "expense" ? expenseCategories : incomeCategories;
+        transactionType === "expense" ? expenseCategories : incomeCategories; // ✅ กำหนดหมวดหมู่ให้เปลี่ยนตามประเภท
 
+    // ✅ โหลดข้อมูลธุรกรรม หากมี `id` (สำหรับแก้ไข)
     useEffect(() => {
         if (transactionId) {
             axios
@@ -43,131 +44,123 @@ const AddTransaction = () => {
                     setTransactionType(data.amount < 0 ? "expense" : "income");
                     setCategory(data.category_id);
                 })
+
                 .catch((error) =>
                     console.error("❌ โหลดข้อมูลไม่สำเร็จ", error)
                 );
         }
     }, [transactionId]);
 
-    const handleCalculate = () => {
-        try {
-            const result = eval(amount);
-            if (!isNaN(result)) {
-                setAmount(result.toString());
-            } else {
-                setAmount("Error");
-            }
-        } catch {
-            setAmount("Error");
-        }
-    };
-
+    // ✅ คำนวณตัวเลขจากคีย์แพด
     const handleKeyPress = (key: string) => {
         if (amount === "Error") setAmount("");
 
         if (key === "=") {
-            handleCalculate();
+            try {
+                const result = eval(amount);
+                if (!isNaN(result)) {
+                    setAmount(result.toString());
+                } else {
+                    setAmount("Error");
+                }
+            } catch {
+                setAmount("Error");
+            }
         } else {
             setAmount((prev) => prev + key);
         }
     };
 
+    // ✅ ลบตัวเลขจากช่องป้อนข้อมูล
     const handleDelete = () => {
         setAmount((prev) => prev.slice(0, -1));
     };
 
-    const csrfToken = document
-        .querySelector('meta[name="csrf-token"]')
-        ?.getAttribute("content");
-    console.log("🔹 CSRF Token:", csrfToken);
-
+    // ✅ ส่งข้อมูลธุรกรรม (POST หรือ PUT)
     const handleSubmit = async () => {
-        console.log("🔹 กำลังส่งข้อมูลธุรกรรม...");
-
-        if (!amount || amount === "Error") return;
+        if (!amount || amount === "Error") {
+            console.error("❌ กรุณากรอกจำนวนเงินที่ถูกต้อง");
+            return;
+        }
 
         const finalAmount =
             transactionType === "expense"
                 ? `-${Math.abs(Number(amount))}`
                 : `${Math.abs(Number(amount))}`;
-        const transaction_date = new Date().toISOString().split("T")[0];
-        const selectedCategory = categories.find((cat) => cat.id === category);
-        const categoryName = selectedCategory ? selectedCategory.name : null;
-        const categoryIcon = selectedCategory ? selectedCategory.icon : "❓";
-        const payload = {
-            category_id: category,
-            amount: finalAmount,
-            transaction_type: transactionType,
-            description: note,
-        };
 
-        console.log("📤 Sending Data:", {
-            category_id: category,
-            category_name: selectedCategory ? selectedCategory.name : "",
-            category_icon: categoryIcon, //✅ เช็คว่า icon ถูกส่งไปหรือไม่
-            amount: finalAmount,
-            transaction_type: transactionType,
-            description: note,
-            transaction_date,
-        });
+        const transaction_date = new Date().toISOString().split("T")[0];
+
+        const selectedCategory = categories.find((cat) => cat.id === category);
         if (!selectedCategory) {
             console.error("❌ ไม่พบ category ที่เลือก!");
             return;
         }
-        console.log("📤 กำลังส่งข้อมูล:", {
+
+        const csrfToken =
+            document
+                .querySelector('meta[name="csrf-token"]')
+                ?.getAttribute("content") || "";
+        if (!csrfToken) {
+            console.error("❌ ไม่พบ CSRF Token");
+            return;
+        }
+
+        const headers = {
+            "Content-Type": "application/json",
+            "X-CSRF-TOKEN": csrfToken,
+        };
+
+        // ✅ เพิ่ม `category_name` และ `category_icon`
+        const transactionData = {
             category_id: category,
-            category_name: categoryName,
-            category_icon: categoryIcon,
+            category_name: selectedCategory.name, // ✅ Laravel ต้องการค่า category_name
+            category_icon: selectedCategory.icon, // ✅ เพิ่มไอคอนของหมวดหมู่ไปด้วย
             amount: finalAmount,
             transaction_type: transactionType,
             description: note,
             transaction_date,
-        });
+        };
+
+        console.log("📤 กำลังส่งข้อมูลไปยังเซิร์ฟเวอร์:", transactionData);
+
         try {
-            const response = await axios.post("/transactions", {
-                category_id: category,
-                category_name: categoryName,
-                category_icon: categoryIcon,
-                amount: finalAmount,
-                transaction_type: transactionType,
-                description: note,
-                transaction_date,
-            }, {
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || "",
-                }
-            });
-
-            console.log("✅ Response:", response.data);
-
-
-            if (response.status === 200) {
-                const newCategory = response.data.category; // ✅ รับค่าหมวดหมู่ที่ถูกต้องกลับมา
-                console.log("✅ หมวดหมู่ที่ใช้:", newCategory);
-
-                // ✅ อัปเดตค่าไอคอนของหมวดหมู่ให้ตรงกับที่เซิร์ฟเวอร์บันทึก
-                categories.forEach((cat) => {
-                    if (cat.name === newCategory.name) {
-                        cat.icon = newCategory.icon;
-                    }
+            let response;
+            if (transactionId) {
+                response = await axios.put(
+                    `/transactions/${transactionId}`,
+                    transactionData,
+                    { headers }
+                );
+            } else {
+                response = await axios.post("/transactions", transactionData, {
+                    headers,
                 });
-
-                // ✅ รีเฟรชหน้า Dashboard ทันที
-                window.dispatchEvent(new Event("transactionAdded"));
-                router.visit("/dashboard");
             }
-        } catch (error) {
-            console.error("❌ Error:", error);
+
+            console.log("✅ Response จากเซิร์ฟเวอร์:", response.data);
+
+            if (response.status === 200 || response.status === 201) {
+                console.log("✅ ธุรกรรมถูกบันทึกเรียบร้อย!");
+                window.dispatchEvent(new Event("transactionAdded"));
+
+                // ✅ รีเฟรชไปยังหน้า Dashboard เพื่อดูข้อมูลที่อัปเดต
+                window.location.href = "/dashboard";
+            } else {
+                console.error("❌ บันทึกข้อมูลล้มเหลว:", response.status);
+            }
+        } catch (error: any) {
+            console.error(
+                "❌ Error ในการบันทึก:",
+                error.response?.data || error.message
+            );
         }
     };
 
     return (
         <div className="min-h-screen bg-amber-50">
-            {/* 🔹 Navbar ด้านบน */}
             <div className="bg-amber-400 text-white p-4 flex justify-between items-center shadow-md">
                 <button onClick={() => history.back()} className="text-xl">
-                    ↩️
+                    🔙
                 </button>
                 <h2 className="text-lg font-semibold">
                     {transactionType === "expense"
@@ -223,7 +216,6 @@ const AddTransaction = () => {
                 </div>
             </div>
 
-            {/* 🔹 ช่องกรอกข้อมูล */}
             <div className="bg-white p-4 rounded-lg shadow-lg mx-4 mt-4">
                 <h3 className="text-lg font-semibold text-gray-700 mb-2">
                     รายละเอียดธุรกรรม
@@ -246,7 +238,6 @@ const AddTransaction = () => {
                 </div>
             </div>
 
-            {/* 🔹 คีย์แพด */}
             <div className="bg-amber-200 text-black p-6 mt-6 rounded-t-lg shadow-lg">
                 <div className="grid grid-cols-4 gap-3 mt-4">
                     {[
@@ -276,8 +267,6 @@ const AddTransaction = () => {
                         </button>
                     ))}
                 </div>
-
-                {/* 🔹 ปุ่มลบ และ บันทึก */}
                 <div className="grid grid-cols-2 gap-3 mt-3">
                     <button
                         onClick={handleDelete}
