@@ -42,14 +42,39 @@ const AddTransaction = () => {
                     setAmount(Math.abs(data.amount).toString());
                     setNote(data.description);
                     setTransactionType(data.amount < 0 ? "expense" : "income");
-                    setCategory(data.category_id);
-                })
 
+                    // ✅ อัปเดตหมวดหมู่ให้ตรงกับข้อมูลที่โหลดมา
+                    const categoryList =
+                        data.amount < 0 ? expenseCategories : incomeCategories; // 🔹 ตรวจสอบหมวดหมู่ให้ถูกต้อง
+
+                    const foundCategory = categoryList.find(
+                        (cat) => cat.id === data.category_id
+                    );
+                    if (foundCategory) {
+                        setCategory(foundCategory.id);
+                    } else {
+                        console.warn(
+                            "⚠️ ไม่พบหมวดหมู่ที่เลือก, ใช้ค่าเริ่มต้นแทน"
+                        );
+                        setCategory(categoryList[0].id);
+                    }
+                })
                 .catch((error) =>
                     console.error("❌ โหลดข้อมูลไม่สำเร็จ", error)
                 );
         }
     }, [transactionId]);
+    useEffect(() => {
+        const newCategoryList =
+            transactionType === "expense"
+                ? expenseCategories
+                : incomeCategories;
+
+        // ✅ ตรวจสอบว่าหมวดหมู่ปัจจุบันอยู่ในหมวดหมู่ใหม่หรือไม่
+        if (!newCategoryList.some((cat) => cat.id === category)) {
+            setCategory(newCategoryList[0].id); // 🔹 ถ้าไม่อยู่ ให้ตั้งค่าเป็นตัวแรกในหมวดหมู่ใหม่
+        }
+    }, [transactionType]);
 
     // ✅ คำนวณตัวเลขจากคีย์แพด
     const handleKeyPress = (key: string) => {
@@ -110,11 +135,11 @@ const AddTransaction = () => {
             "X-CSRF-TOKEN": csrfToken,
         };
 
-        // ✅ เพิ่ม `category_name` และ `category_icon`
+        // ✅ แก้ไขให้ category_id อัปเดตตามค่าที่เลือกใหม่
         const transactionData = {
-            category_id: category,
-            category_name: selectedCategory.name, // ✅ Laravel ต้องการค่า category_name
-            category_icon: selectedCategory.icon, // ✅ เพิ่มไอคอนของหมวดหมู่ไปด้วย
+            category_id: selectedCategory.id, // ✅ ใช้ selectedCategory.id แทน category
+            category_name: selectedCategory.name,
+            category_icon: selectedCategory.icon,
             amount: finalAmount,
             transaction_type: transactionType,
             description: note,
@@ -202,7 +227,10 @@ const AddTransaction = () => {
                     {categories.map((cat) => (
                         <button
                             key={cat.id}
-                            onClick={() => setCategory(cat.id)}
+                            onClick={() => {
+                                setCategory(cat.id);
+                                console.log("🟢 หมวดหมู่ที่เลือกใหม่:", cat.id); // ✅ ตรวจสอบค่าที่เลือก
+                            }}
                             className={`p-3 rounded-lg shadow-md text-center ${
                                 category === cat.id
                                     ? "bg-amber-400 text-white"
