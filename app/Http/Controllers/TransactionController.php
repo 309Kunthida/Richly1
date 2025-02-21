@@ -2,8 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use Inertia\Inertia;
-use Inertia\Response;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
 use App\Models\Transaction;
@@ -18,67 +16,123 @@ class TransactionController extends Controller
      */
     public function index()
     {
-        return response()->json([
-            'transactions' => Transaction::orderBy('transaction_date', 'desc')->get()
-        ]);
+        $userId = Auth::id();
+
+        $transactions = Transaction::with('category') // ✅ ดึงข้อมูลจากตาราง `categories`
+            ->where('user_id', $userId)
+            ->orderBy('transaction_date', 'desc')
+            ->get()
+            ->map(function ($transaction) {
+                return [
+                    'id' => $transaction->id,
+                    'category' => $transaction->category->name ?? 'ไม่ระบุหมวดหมู่',
+                    'icon' => $transaction->category->icon ?? '❓', // ✅ ใช้ icon จาก `categories`
+                    'description' => $transaction->description ?? 'ไม่มีรายละเอียด',
+                    'amount' => $transaction->amount,
+                    'transaction_type' => $transaction->transaction_type,
+                    'date' => $transaction->transaction_date,
+                    'created_at' => $transaction->created_at,
+                ];
+            });
+
+        return response()->json(['transactions' => $transactions]);
     }
 
+
     /**
-     * Store a newly created resource in storage.
+     * Store a newly created transaction.
      */
     public function store(Request $request)
     {
         try {
-            Log::info("📥 Data received:", $request->all());
+            Log::info("📥 Data received in Backend:", $request->all());
 
-            $validated = $request->validate([
-                'category_name' => 'required|string|max:255',
-                'amount' => 'required|numeric',
-                'transaction_type' => 'required|in:income,expense',
-                'description' => 'nullable|string',
-                'transaction_date' => 'required|date',
-            ]);
+        $validated = $request->validate([
+            'category_id' => 'sometimes|integer',
+            'category_name' => 'required|string',
+            'category_icon' => 'required|string',
+            'amount' => 'required|numeric',
+            'transaction_type' => 'required|string',
+            'description' => 'nullable|string',
+            'transaction_date' => 'required|date',
+        ]);
 
-            $userId = Auth::id();
-            if (!$userId) {
-                return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+        Log::info("✅ Validated Data:", $validated);
+
+        $userId = Auth::id();
+        if (!$userId) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        // ✅ ตรวจสอบว่าหมวดหมู่มีอยู่แล้วหรือไม่
+        $category = Category::where('user_id', $userId)
+            ->whereRaw('LOWER(name) = ?', [strtolower(trim($validated['category_name']))])
+            ->where('type', $validated['transaction_type'])
+            ->first();
+
+            if (!$category) {
+                // ✅ ถ้าไม่มีหมวดหมู่ → สร้างใหม่ พร้อมไอคอน
+                $category = Category::create([
+                    'user_id' => $userId,
+                    'name' => trim($validated['category_name']),
+                    'type' => $validated['transaction_type'],
+                    'icon' => $validated['category_icon'], // ✅ ต้องบันทึก icon ตรงนี้
+                ]);
+                Log::info("🆕 New Category Created:", ['category' => $category->toArray()]);
+            } else {
+                // ✅ ถ้ามีอยู่แล้ว และไม่มี icon → อัปเดต
+                if (!$category->icon) {
+                    $category->update(['icon' => $validated['category_icon']]);
+                    Log::info("🔄 Category Updated:", ['id' => $category->id, 'icon' => $validated['category_icon']]);
+                }
             }
 
-            // ✅ ค้นหา category_id จาก category_name ถ้ายังไม่มีให้สร้างใหม่
-            $category = Category::firstOrCreate(
-                ['name' => trim($validated['category_name'])],
-                ['user_id' => $userId, 'type' => $validated['transaction_type']]
-            );
 
-            $category_id = $category->id;
+        // ✅ เช็คว่า `$category` ถูกกำหนดค่าแน่นอน
+        if (!$category) {
+            Log::error("❌ Error: Category is still undefined!");
+            return response()->json(['success' => false, 'message' => 'Category could not be determined'], 500);
+        }
 
-            // ✅ บันทึกธุรกรรมลงตาราง transactions
-            $transaction = Transaction::create([
+        Log::info("📌 Final Category Data:", ['id' => $category->id, 'icon' => $category->icon]);
+
+        // ✅ บันทึกธุรกรรม
+        $transaction = Transaction::create([
+            'user_id' => $userId,
+            'category_id' => $category->id,
+            'category_name' => $category->name,
+            'category_icon' => $category->icon,
+            'amount' => $validated['amount'],
+            'transaction_type' => $validated['transaction_type'],
+            'description' => $validated['description'],
+            'transaction_date' => $validated['transaction_date'],
+        ]);
+
+            // ✅ **อัปเดตงบประมาณ**
+            Log::info("📝 Budget Update Data", [
                 'user_id' => $userId,
-                'category_id' => $category_id, // ✅ ใช้ category_id ที่หาได้
+                'category_id' => $category->id,
                 'amount' => $validated['amount'],
-                'transaction_type' => $validated['transaction_type'],
-                'description' => $validated['description'] ?? null,
-                'transaction_date' => $validated['transaction_date'],
+                'start_date' => now()->startOfMonth(),
+                'end_date' => now()->endOfMonth(),
             ]);
 
-            // ✅ ตรวจสอบว่ามี Budget อยู่หรือไม่
+            // ✅ **เช็คว่ามีงบประมาณของ user นี้หรือไม่**
             $budget = Budget::where('user_id', $userId)->first();
 
             if ($budget) {
                 // ✅ ถ้ามีงบประมาณ → อัปเดตยอดเงิน
                 if ($validated['transaction_type'] === 'income') {
-                    $budget->amount += abs($validated['amount']); // บวกเงินเข้า
+                    $budget->amount += abs($validated['amount']);
                 } else {
-                    $budget->amount -= abs($validated['amount']); // ลบเงินออก
+                    $budget->amount -= abs($validated['amount']);
                 }
                 $budget->save();
             } else {
-                Log::info("✅ Using category_id: " . $category_id);
-                // ✅ ถ้าไม่มี Budget → สร้างใหม่
+                // ✅ ถ้าไม่มี `user_id` ใน `budgets` → สร้างใหม่
                 $budget = Budget::create([
                     'user_id' => $userId,
-                    'category_id' => $category_id,
+                    'category_id' => $category->id,
                     'amount' => $validated['transaction_type'] === 'income'
                         ? abs($validated['amount'])
                         : -abs($validated['amount']),
@@ -92,14 +146,14 @@ class TransactionController extends Controller
                 'transaction' => $transaction,
                 'category' => $category,
                 'budget' => $budget,
-            ], 201);
+            ]);
 
         } catch (\Exception $e) {
             Log::error("❌ Error: " . $e->getMessage());
 
             return response()->json([
                 'success' => false,
-                'message' => 'Internal Server Error',
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
@@ -113,26 +167,11 @@ class TransactionController extends Controller
     }
 
     /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit($id): Response
-    {
-        $transaction = Transaction::findOrFail($id);
-        return Inertia::render('EditTransaction', [
-            'transaction' => $transaction
-        ]);
-    }
-
-    /**
      * Update the specified resource in storage.
      */
     public function update(Request $request, string $id)
     {
-        //แก้ไขข้อมูล อัพเดต
-        $transaction = Transaction::findOrFail($id);
-        $transaction->update($request->all());
-
-        return response()->json(['message' => 'อัปเดตสำเร็จ']);
+        //
     }
 
     /**
@@ -140,10 +179,13 @@ class TransactionController extends Controller
      */
     public function destroy(string $id)
     {
-        //ลบข้อมูลธุรกรรม
-        $transaction = Transaction::findOrFail($id);
-        $transaction->delete();
+        //ลบธุรกรรม
+        $transaction = Transaction::find($id);
+        if (!$transaction) {
+            return response()->json(['message' => 'ไม่พบธุรกรรม'], 404);
+        }
 
+        $transaction->delete();
         return response()->json(['message' => 'ลบธุรกรรมสำเร็จ']);
     }
 }
