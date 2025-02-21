@@ -1,6 +1,6 @@
-import { useState } from "react";
 import { router } from "@inertiajs/react";
 import axios from "axios";
+import { useEffect, useState } from "react";
 
 const expenseCategories = [
     { id: 1, name: "อาหาร", icon: "🍔" },
@@ -18,14 +18,36 @@ const incomeCategories = [
 ];
 
 const AddTransaction = () => {
-    const [amount, setAmount] = useState("");
-    const [note, setNote] = useState("");
-    const [transactionType, setTransactionType] = useState<"expense" | "income">("expense");
-    const [category, setCategory] = useState(expenseCategories[0].id);
+    //const location = useLocation();
+    const params = new URLSearchParams(location.search);
+    const transactionId = params.get("id"); // ✅ ดึง `id` จาก URL
 
-    const categories = transactionType === "expense" ? expenseCategories : incomeCategories;
+    const [amount, setAmount] = useState(""); // ✅ จำนวนเงิน
+    const [note, setNote] = useState(""); // ✅ หมายเหตุ
+    const [transactionType, setTransactionType] = useState<
+        "expense" | "income"
+    >("expense"); // ✅ ประเภท รายรับ/รายจ่าย
+    const [category, setCategory] = useState(expenseCategories[0].id); // ✅ หมวดหมู่
 
+    const categories =
+        transactionType === "expense" ? expenseCategories : incomeCategories;
 
+    useEffect(() => {
+        if (transactionId) {
+            axios
+                .get(`/transactions/${transactionId}`)
+                .then((response) => {
+                    const data = response.data;
+                    setAmount(Math.abs(data.amount).toString());
+                    setNote(data.description);
+                    setTransactionType(data.amount < 0 ? "expense" : "income");
+                    setCategory(data.category_id);
+                })
+                .catch((error) =>
+                    console.error("❌ โหลดข้อมูลไม่สำเร็จ", error)
+                );
+        }
+    }, [transactionId]);
 
     const handleCalculate = () => {
         try {
@@ -54,19 +76,31 @@ const AddTransaction = () => {
         setAmount((prev) => prev.slice(0, -1));
     };
 
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
+    const csrfToken = document
+        .querySelector('meta[name="csrf-token"]')
+        ?.getAttribute("content");
     console.log("🔹 CSRF Token:", csrfToken);
+
     const handleSubmit = async () => {
         console.log("🔹 กำลังส่งข้อมูลธุรกรรม...");
 
         if (!amount || amount === "Error") return;
 
-        const finalAmount = transactionType === "expense" ? `-${Math.abs(Number(amount))}` : `${Math.abs(Number(amount))}`;
+        const finalAmount =
+            transactionType === "expense"
+                ? `-${Math.abs(Number(amount))}`
+                : `${Math.abs(Number(amount))}`;
         const transaction_date = new Date().toISOString().split("T")[0];
-
         const selectedCategory = categories.find((cat) => cat.id === category);
         const categoryName = selectedCategory ? selectedCategory.name : null;
         const categoryIcon = selectedCategory ? selectedCategory.icon : "❓";
+        const payload = {
+            category_id: category,
+            amount: finalAmount,
+            transaction_type: transactionType,
+            description: note,
+        };
+
         console.log("📤 Sending Data:", {
             category_id: category,
             category_name: selectedCategory ? selectedCategory.name : "",
@@ -98,12 +132,18 @@ const AddTransaction = () => {
                 transaction_type: transactionType,
                 description: note,
                 transaction_date,
+            }, {
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || "",
+                }
             });
 
             console.log("✅ Response:", response.data);
 
+
             if (response.status === 200) {
-                const newCategory = response.data.category;  // ✅ รับค่าหมวดหมู่ที่ถูกต้องกลับมา
+                const newCategory = response.data.category; // ✅ รับค่าหมวดหมู่ที่ถูกต้องกลับมา
                 console.log("✅ หมวดหมู่ที่ใช้:", newCategory);
 
                 // ✅ อัปเดตค่าไอคอนของหมวดหมู่ให้ตรงกับที่เซิร์ฟเวอร์บันทึก
@@ -115,11 +155,10 @@ const AddTransaction = () => {
 
                 // ✅ รีเฟรชหน้า Dashboard ทันที
                 window.dispatchEvent(new Event("transactionAdded"));
-                router.visit('/dashboard');
+                router.visit("/dashboard");
             }
         } catch (error) {
             console.error("❌ Error:", error);
-
         }
     };
 
@@ -127,8 +166,14 @@ const AddTransaction = () => {
         <div className="min-h-screen bg-amber-50">
             {/* 🔹 Navbar ด้านบน */}
             <div className="bg-amber-400 text-white p-4 flex justify-between items-center shadow-md">
-                <button onClick={() => history.back()} className="text-xl">↩️</button>
-                <h2 className="text-lg font-semibold">{transactionType === "expense" ? "เพิ่มรายจ่าย" : "เพิ่มรายรับ"}</h2>
+                <button onClick={() => history.back()} className="text-xl">
+                    ↩️
+                </button>
+                <h2 className="text-lg font-semibold">
+                    {transactionType === "expense"
+                        ? "เพิ่มรายจ่าย"
+                        : "เพิ่มรายรับ"}
+                </h2>
             </div>
 
             {/* 🔹 ปุ่มเลือก รายจ่าย/รายรับ */}
@@ -136,7 +181,9 @@ const AddTransaction = () => {
                 <button
                     onClick={() => setTransactionType("income")}
                     className={`px-4 py-2 mx-2 rounded-lg shadow-md text-lg font-semibold ${
-                        transactionType === "income" ? "bg-green-400 text-white" : "bg-gray-200 text-gray-700"
+                        transactionType === "income"
+                            ? "bg-green-400 text-white"
+                            : "bg-gray-200 text-gray-700"
                     }`}
                 >
                     รายรับ 💰
@@ -144,7 +191,9 @@ const AddTransaction = () => {
                 <button
                     onClick={() => setTransactionType("expense")}
                     className={`px-4 py-2 mx-2 rounded-lg shadow-md text-lg font-semibold ${
-                        transactionType === "expense" ? "bg-red-400 text-white" : "bg-gray-200 text-gray-700"
+                        transactionType === "expense"
+                            ? "bg-red-400 text-white"
+                            : "bg-gray-200 text-gray-700"
                     }`}
                 >
                     รายจ่าย 💸
@@ -153,14 +202,18 @@ const AddTransaction = () => {
 
             {/* 🔹 เลือกหมวดหมู่ */}
             <div className="bg-white p-4 rounded-lg shadow-lg mx-4 mt-4">
-                <h3 className="text-lg font-semibold text-gray-700 mb-2">เลือกหมวดหมู่</h3>
+                <h3 className="text-lg font-semibold text-gray-700 mb-2">
+                    เลือกหมวดหมู่
+                </h3>
                 <div className="grid grid-cols-4 gap-4">
                     {categories.map((cat) => (
                         <button
                             key={cat.id}
                             onClick={() => setCategory(cat.id)}
                             className={`p-3 rounded-lg shadow-md text-center ${
-                                category === cat.id ? "bg-amber-400 text-white" : "bg-gray-100 text-gray-700 hover:bg-amber-100"
+                                category === cat.id
+                                    ? "bg-amber-400 text-white"
+                                    : "bg-gray-100 text-gray-700 hover:bg-amber-100"
                             }`}
                         >
                             <span className="text-2xl">{cat.icon}</span>
@@ -172,18 +225,53 @@ const AddTransaction = () => {
 
             {/* 🔹 ช่องกรอกข้อมูล */}
             <div className="bg-white p-4 rounded-lg shadow-lg mx-4 mt-4">
-                <h3 className="text-lg font-semibold text-gray-700 mb-2">รายละเอียดธุรกรรม</h3>
+                <h3 className="text-lg font-semibold text-gray-700 mb-2">
+                    รายละเอียดธุรกรรม
+                </h3>
                 <div className="grid grid-cols-2 gap-4">
-                    <input type="text" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full p-4 text-3xl text-center bg-amber-100 rounded-lg" placeholder="฿0.00" />
-                    <input type="text" value={note} onChange={(e) => setNote(e.target.value)} className="w-full p-4 text-lg bg-amber-100 rounded-lg" placeholder="รายละเอียดเพิ่มเติม..." />
+                    <input
+                        type="text"
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        className="w-full p-4 text-3xl text-center bg-amber-100 rounded-lg"
+                        placeholder="฿0.00"
+                    />
+                    <input
+                        type="text"
+                        value={note}
+                        onChange={(e) => setNote(e.target.value)}
+                        className="w-full p-4 text-lg bg-amber-100 rounded-lg"
+                        placeholder="รายละเอียดเพิ่มเติม..."
+                    />
                 </div>
             </div>
 
             {/* 🔹 คีย์แพด */}
             <div className="bg-amber-200 text-black p-6 mt-6 rounded-t-lg shadow-lg">
                 <div className="grid grid-cols-4 gap-3 mt-4">
-                    {["7", "8", "9", "+", "4", "5", "6", "-", "1", "2", "3", "*", ".", "0", "=", "/"].map((key) => (
-                        <button key={key} onClick={() => handleKeyPress(key)} className="p-4 rounded-lg text-2xl font-semibold bg-amber-100 hover:bg-amber-400">
+                    {[
+                        "7",
+                        "8",
+                        "9",
+                        "+",
+                        "4",
+                        "5",
+                        "6",
+                        "-",
+                        "1",
+                        "2",
+                        "3",
+                        "*",
+                        ".",
+                        "0",
+                        "=",
+                        "/",
+                    ].map((key) => (
+                        <button
+                            key={key}
+                            onClick={() => handleKeyPress(key)}
+                            className="p-4 rounded-lg text-2xl font-semibold bg-amber-100 hover:bg-amber-400"
+                        >
                             {key}
                         </button>
                     ))}
@@ -191,8 +279,18 @@ const AddTransaction = () => {
 
                 {/* 🔹 ปุ่มลบ และ บันทึก */}
                 <div className="grid grid-cols-2 gap-3 mt-3">
-                    <button onClick={handleDelete} className="p-4 rounded-lg text-2xl font-semibold bg-red-500 hover:bg-red-600 text-white">← ลบ</button>
-                    <button onClick={handleSubmit} className="p-4 rounded-lg text-2xl font-semibold bg-green-500 hover:bg-green-600 text-white">✅ บันทึก</button>
+                    <button
+                        onClick={handleDelete}
+                        className="p-4 rounded-lg text-2xl font-semibold bg-red-500 hover:bg-red-600 text-white"
+                    >
+                        ← ลบ
+                    </button>
+                    <button
+                        onClick={handleSubmit}
+                        className="p-4 rounded-lg text-2xl font-semibold bg-green-500 hover:bg-green-600 text-white"
+                    >
+                        ✅ บันทึก
+                    </button>
                 </div>
             </div>
         </div>

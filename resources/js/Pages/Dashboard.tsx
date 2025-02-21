@@ -394,9 +394,9 @@ export default function Dashboard() {
             {/* 🔹 Floating Button (ปุ่มลอย) สำหรับเพิ่มธุรกรรม */}
             <Link
                 href="/transactions/add"
-                className="fixed bottom-16 right-4 bg-amber-500 p-4 rounded-full shadow-lg"
+                className="fixed bottom-16 right-4 bg-amber-400 p-4 rounded-full shadow-lg"
             >
-                ✏️
+                ➕
             </Link>
 
             {/* 🔹 Popup รายละเอียดธุรกรรม */}
@@ -481,12 +481,16 @@ export default function Dashboard() {
                                     >
                                         ปิด
                                     </button>
+                                    {/*ให้หน้า /transactions/add รู้ว่าผู้ใช้กำลังแก้ไขธุรกรรมไหน โดยส่ง id ไปใน URL*/}
                                     <button
-                                        onClick={startEditing}
+                                        onClick={() =>
+                                            (window.location.href = `/transactions/add?id=${selectedTransaction?.id}`)
+                                        }
                                         className="px-4 py-2 bg-yellow-500 text-white rounded mr-2"
                                     >
                                         แก้ไข
                                     </button>
+
                                     <button
                                         onClick={() =>
                                             confirmDelete(

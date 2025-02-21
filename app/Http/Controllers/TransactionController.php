@@ -163,7 +163,14 @@ class TransactionController extends Controller
      */
     public function show(string $id)
     {
-        //
+        
+        $transaction = Transaction::find($id);
+
+        if (!$transaction) {
+            return response()->json(['message' => 'Transaction not found'], 404);
+        }
+
+        return response()->json($transaction);
     }
 
     /**
