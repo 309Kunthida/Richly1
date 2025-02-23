@@ -5,7 +5,6 @@ import { Head, Link, usePage } from "@inertiajs/react";
 // 🟡 กำหนด Type ของ Transaction
 interface Transaction {
     id: number;
-    category_id: number;
     category: string;
     icon: string;
     description: string;
@@ -14,20 +13,6 @@ interface Transaction {
     created_at?: string;
     timestamp: number;
 }
-const categoryIcons: Record<number, string> = {
-    1: "🍔", // อาหาร
-    2: "🚗", // การเดินทาง
-    3: "🏠", // ที่อยู่อาศัย
-    4: "🛒", // ของใช้
-    5: "💡", // อื่นๆ
-};
-const categoryMap: Record<number, string> = {
-    1: "อาหาร 🍔",
-    2: "การเดินทาง 🚗",
-    3: "ที่อยู่อาศัย 🏠",
-    4: "ของใช้ 🛒",
-    5: "อื่นๆ 💡",
-};
 
 export default function Dashboard() {
     const { auth } = usePage().props;
@@ -102,7 +87,7 @@ export default function Dashboard() {
             if (response.ok) {
                 console.log("✅ ลบธุรกรรมสำเร็จ");
                 closePopup();
-                fetchTransactions(); // ✅ โหลดข้อมูลใหม่หลังอัปเดต
+                fetchTransactions();
             } else {
                 console.error("❌ ลบไม่สำเร็จ", await response.text());
             }
@@ -152,20 +137,18 @@ export default function Dashboard() {
     };
 
     // ✅ โหลดข้อมูลธุรกรรม
-    // ✅ โหลดข้อมูลธุรกรรม
     const fetchTransactions = async () => {
         console.log("🔄 กำลังโหลดข้อมูลธุรกรรม...");
         try {
-            // ✅ แก้ไขการใช้ `userId` ให้ถูกต้อง
-            const response = await fetch(`/transactions?user_id=${userId}`);
+            const response = await fetch("/transactions?user_id=${userId}");
             if (!response.ok)
                 throw new Error(`HTTP error! status: ${response.status}`);
 
             const data = await response.json();
             console.log("✅ รายการธุรกรรมที่โหลดมา:", data);
 
-            const transactions = (data.transactions || []).map(
-                (t: Transaction) => {
+            const transactions = (data.transactions || [])
+                .map((t: Transaction) => {
                     let transactionDate =
                         t.created_at && !isNaN(Date.parse(t.created_at))
                             ? new Date(t.created_at)
@@ -182,20 +165,18 @@ export default function Dashboard() {
                         timestamp: transactionDate
                             ? transactionDate.getTime()
                             : 0,
-                        category_id: t.category_id || null, // ✅ ใช้ category_id ถ้ามี
-                        category: t.category_id
-                            ? categoryMap[t.category_id] || "ไม่ระบุหมวดหมู่"
-                            : t.category || "ไม่ระบุหมวดหมู่", // ✅ ใช้ category_id ถ้ามี
-                            icon: t.category_id ? categoryIcons[t.category_id] || "❓" : t.icon || "❓",
-
+                        category: t.category || "ไม่ระบุหมวดหมู่",
+                        icon: t.icon || "❓", // ✅ ใช้ `icon` จาก API
                     };
-                }
-            );
+                })
+                .sort(
+                    (a: Transaction, b: Transaction) =>
+                        b.timestamp - a.timestamp
+                );
 
             console.log("🔢 Transactions (หลังจากแปลงค่า):", transactions); // ✅ Debug ดูค่า
 
             setTransactions(transactions);
-            console.log("📥 ธุรกรรมที่โหลดล่าสุด:", transactions);
 
             // ✅ คำนวณรายรับ
             const income = transactions
@@ -349,10 +330,9 @@ export default function Dashboard() {
                                                 <div className="ml-3">
                                                     {/* ✅ แสดงชื่อหมวดหมู่ ถ้าไม่มีให้ใช้ค่าเริ่มต้น */}
                                                     <p className="font-semibold text-gray-800">
-                                                        {categoryMap[
-                                                            transaction
-                                                                .category_id
-                                                        ] || "ไม่ระบุหมวดหมู่"}
+                                                        {transaction.category
+                                                            ? transaction.category
+                                                            : "ไม่ระบุหมวดหมู่"}
                                                     </p>
                                                     {/* ✅ แสดงรายละเอียด ถ้าไม่มีให้ใช้ค่าเริ่มต้น */}
                                                     <p className="text-gray-500 text-sm">
