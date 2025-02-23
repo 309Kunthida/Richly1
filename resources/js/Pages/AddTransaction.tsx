@@ -11,12 +11,12 @@ const expenseCategories = [
 ];
 
 const incomeCategories = [
-  { id: 6, name: "เงินเดือน", icon: "💵" },
-  { id: 7, name: "โบนัส", icon: "🎉" },
-  { id: 8, name: "ธุรกิจ", icon: "🏢" },
-  { id: 9, name: "ครอบครัว", icon: "👨‍👩‍👧‍👦" },
-  { id: 5, name: "อื่นๆ", icon: "🛠️" },
-];
+    { id: 6, name: "เงินเดือน", icon: "💵" },
+    { id: 7, name: "โบนัส", icon: "🎉" },
+    { id: 8, name: "ธุรกิจ", icon: "🏢" },
+    { id: 9, name: "ครอบครัว", icon: "👨‍👩‍👧‍👦" },
+    { id: 10, name: "อื่นๆ", icon: "🛠️" },
+  ];
 
 const AddTransaction = () => {
   const params = new URLSearchParams(window.location.search);
@@ -33,27 +33,17 @@ const AddTransaction = () => {
   // โหลดข้อมูลธุรกรรม (สำหรับแก้ไข)
   useEffect(() => {
     if (transactionId) {
-      axios
-        .get(`/transactions/${transactionId}`)
-        .then((response) => {
-          const data = response.data;
-          setAmount(Math.abs(data.amount)?.toString() || "");
-          setNote(data.description || "");
-          setTransactionType(data.amount < 0 ? "expense" : "income");
-
-          // เลือกรายการหมวดหมู่ตามประเภทที่ได้จาก data
-          const categoryList = data.amount < 0 ? expenseCategories : incomeCategories;
-          const foundCategory = categoryList.find((cat) => cat.id === data.category_id);
-          if (foundCategory) {
-            setCategory(foundCategory.id);
-          } else {
-            console.warn("⚠️ ไม่พบหมวดหมู่ที่เลือก, ใช้ค่าเริ่มต้นแทน");
-            setCategory(categoryList[0].id);
-          }
-        })
-        .catch((error) => console.error("❌ โหลดข้อมูลไม่สำเร็จ", error));
+        axios.get(`/transactions/${transactionId}`)
+            .then(response => {
+                const data = response.data;
+                setAmount(data.amount.toString());
+                setNote(data.description || "");
+                setTransactionType(data.transaction_type);
+                setCategory(data.category_id);
+            })
+            .catch(error => console.error("❌ โหลดข้อมูลไม่สำเร็จ", error));
     }
-  }, [transactionId]);
+}, [transactionId]);
 
   // เมื่อ transactionType เปลี่ยน ตรวจสอบว่า category ที่เลือกอยู่ในรายการของประเภทใหม่หรือไม่
   useEffect(() => {
@@ -88,72 +78,93 @@ const AddTransaction = () => {
   const handleDelete = () => {
     setAmount((prev) => prev.slice(0, -1));
   };
+const [loading, setLoading] = useState(false); // ✅ เพิ่ม State สำหรับ Loader
 
-  // ส่งข้อมูลธุรกรรม (POST หรือ PUT)
-  const handleSubmit = async () => {
-    if (!amount || amount === "Error") {
-      console.error("❌ กรุณากรอกจำนวนเงินที่ถูกต้อง");
-      return;
+// ✅ ส่งข้อมูลธุรกรรม (POST หรือ PUT)
+const handleSubmit = async () => {
+    if (!amount) {
+        console.error("❌ กรุณากรอกจำนวนเงินที่ถูกต้อง");
+        return;
     }
 
+    setLoading(true); // ⏳ เปิด Loader ขณะบันทึก
+
     const finalAmount =
-      transactionType === "expense"
-        ? `-${Math.abs(Number(amount))}`
-        : `${Math.abs(Number(amount))}`;
+        transactionType === "expense"
+            ? `-${Math.abs(Number(amount))}`
+            : `${Math.abs(Number(amount))}`;
 
     const transaction_date = new Date().toISOString().split("T")[0];
 
-    const selectedCategory = categories.find((cat) => cat.id === category);
-    if (!selectedCategory) {
-      console.error("❌ ไม่พบ category ที่เลือก!");
-      return;
+    if (!category) {
+        console.error("❌ กรุณาเลือกหมวดหมู่");
+        return;
     }
 
-    const csrfToken =
-      document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || "";
-    if (!csrfToken) {
-      console.error("❌ ไม่พบ CSRF Token");
-      return;
+    // ✅ ดึง Token จาก Local Storage หรือ Context
+    const token = localStorage.getItem("auth_token");
+    console.log("🔎 Token ที่ใช้:", token);
+
+    if (!token) {
+        console.error("❌ ไม่พบ Token กรุณาเข้าสู่ระบบใหม่");
+        return;
     }
 
     const headers = {
-      "Content-Type": "application/json",
-      "X-CSRF-TOKEN": csrfToken,
+    "Content-Type": "application/json",
+    Accept: "application/json",
+    Authorization: `Bearer ${token}`, // ✅ ตรวจสอบว่า Token ถูกส่งไป
     };
 
     const transactionData = {
-      category_id: selectedCategory.id,
-      category_name: selectedCategory.name,
-      category_icon: selectedCategory.icon,
-      amount: finalAmount,
-      transaction_type: transactionType,
-      description: note,
-      transaction_date,
+        category_id: category,
+        amount: finalAmount,
+        transaction_type: transactionType,
+        description: note,
+        transaction_date,
     };
 
     console.log("📤 กำลังส่งข้อมูลไปยังเซิร์ฟเวอร์:", transactionData);
 
     try {
-      let response;
-      if (transactionId) {
-        response = await axios.put(`/transactions/${transactionId}`, transactionData, { headers });
-      } else {
-        response = await axios.post("/transactions", transactionData, { headers });
-      }
+        let response;
+        if (transactionId) {
+            response = await axios.put(`/api/transactions/${transactionId}`, transactionData, { headers });
+        } else {
+            response = await axios.post("/api/transactions", transactionData, { headers });
+        }
 
-      console.log("✅ Response จากเซิร์ฟเวอร์:", response.data);
+        console.log("✅ Response จากเซิร์ฟเวอร์:", response.data);
 
-      if (response.status === 200 || response.status === 201) {
-        console.log("✅ ธุรกรรมถูกบันทึกเรียบร้อย!");
-        window.dispatchEvent(new Event("transactionAdded"));
-        window.location.href = "/dashboard";
-      } else {
-        console.error("❌ บันทึกข้อมูลล้มเหลว:", response.status);
-      }
+        if (response.status >= 200 && response.status < 300) {
+            console.log("✅ ธุรกรรมถูกบันทึกเรียบร้อย!");
+
+           // ✅ แจ้งให้ Dashboard โหลดข้อมูลใหม่
+           window.dispatchEvent(new Event("transactionAdded"));
+
+            console.log("🔄 กำลังเปลี่ยนหน้าไปยัง Dashboard...");
+            router.visit("/dashboard", { replace: true }); // ✅ ใช้ replace เพื่อเปลี่ยนหน้าเร็วขึ้น
+
+        } else {
+            console.error("❌ บันทึกข้อมูลล้มเหลว:", response.status);
+        }
     } catch (error: any) {
-      console.error("❌ Error ในการบันทึก:", error.response?.data || error.message);
+        console.error("❌ Error ในการบันทึก:", error.response?.data || error.message);
+    } finally {
+        setLoading(false); // 🔄 ปิด Loader
     }
-  };
+};
+
+
+// ✅ ปุ่มบันทึกที่มี Loader
+<button
+    onClick={handleSubmit}
+    disabled={loading} // ❌ ปิดปุ่มถ้า API กำลังทำงาน
+    className="p-4 rounded-lg text-2xl font-semibold bg-green-500 hover:bg-green-600 text-white"
+>
+    {loading ? "⏳ กำลังบันทึก..." : "✅ บันทึก"}
+</button>
+
 
   return (
     <div className="min-h-screen bg-amber-50">

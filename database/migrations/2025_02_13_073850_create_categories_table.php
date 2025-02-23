@@ -10,22 +10,23 @@ return new class extends Migration
      * Run the migrations.
      */
     public function up()
-{
-    Schema::create('categories', function (Blueprint $table) {
-        $table->id();
-        $table->foreignId('user_id')->constrained()->onDelete('cascade');
-        $table->string('name');
-        $table->string('icon')->nullable();
-        $table->enum('type', ['income', 'expense']);
-        $table->timestamps();
-    });
-}
+    {
+        Schema::create('categories', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->string('type'); // ✅ เพิ่ม type เพื่อแยกหมวดหมู่
+            $table->string('icon')->nullable();
+            $table->timestamps();
 
+            // ✅ ทำให้ `name` ซ้ำกันได้ แต่ต้อง `unique` คู่กับ `type`
+            $table->unique(['name', 'type']);
+        });
+    }
 
     /**
      * Reverse the migrations.
      */
-    public function down(): void
+    public function down()
     {
         Schema::dropIfExists('categories');
     }

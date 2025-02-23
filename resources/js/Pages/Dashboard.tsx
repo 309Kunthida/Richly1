@@ -73,7 +73,7 @@ export default function Dashboard() {
                 ?.getAttribute("content");
 
             const response = await fetch(
-                `/transactions/${deleteTransactionId}`,
+                `/api/transactions/${deleteTransactionId},`,
                 {
                     method: "DELETE",
                     headers: {
@@ -110,7 +110,7 @@ export default function Dashboard() {
                 ?.getAttribute("content");
 
             const response = await fetch(
-                `/transactions/${editTransaction.id}`,
+                `/api/transactions${editTransaction.id}`,
                 {
                     method: "PUT",
                     headers: {
@@ -138,44 +138,61 @@ export default function Dashboard() {
 
     // ✅ โหลดข้อมูลธุรกรรม
     const fetchTransactions = async () => {
-        console.log("🔄 กำลังโหลดข้อมูลธุรกรรม...");
         try {
-            const response = await fetch(`/transactions?user_id=${userId}`);
-            if (!response.ok)
+            console.log("🔄 กำลังโหลดข้อมูลธุรกรรม...");
+
+            // ✅ เรียก `/sanctum/csrf-cookie` ถ้าใช้ Laravel Sanctum
+            await fetch("/sanctum/csrf-cookie", {
+                method: "GET",
+                credentials: "include",
+            });
+
+            const token = localStorage.getItem("auth_token"); // ⬅️ ดึง Token ถ้าใช้ Auth
+            console.log("🛠️ Token ที่ใช้:", token);
+
+            const response = await fetch("/api/transactions", {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                    Authorization: `Bearer ${token}`, // ⬅️ ใช้ Token ถ้า API ต้องการ
+                },
+            });
+
+            if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
+            }
 
             const data = await response.json();
             console.log("✅ รายการธุรกรรมที่โหลดมา:", data);
 
-            const transactions = (data.transactions || [])
-                .map((t: Transaction) => {
-                    let transactionDate =
-                        t.created_at && !isNaN(Date.parse(t.created_at))
-                            ? new Date(t.created_at)
-                            : t.date && !isNaN(Date.parse(t.date))
-                            ? new Date(t.date)
-                            : null;
+            if (!data.transactions) {
+                console.error("❌ ไม่มีข้อมูลธุรกรรมที่โหลดมา!");
+                setTransactions([]); // ป้องกันกรณี response ว่าง
+                return;
+            }
 
-                    return {
-                        ...t,
-                        amount: Number(t.amount) || 0,
-                        date: transactionDate
-                            ? transactionDate.toISOString().split("T")[0]
-                            : "Invalid Date",
-                        timestamp: transactionDate
-                            ? transactionDate.getTime()
-                            : 0,
-                        category: t.category || "ไม่ระบุหมวดหมู่",
-                        icon: t.icon || "❓", // ✅ ใช้ `icon` จาก API
-                    };
-                })
-                .sort(
-                    (a: Transaction, b: Transaction) =>
-                        b.timestamp - a.timestamp
-                );
+            // ✅ แปลงข้อมูลและป้องกันข้อผิดพลาดของวันที่
+            const transactions = data.transactions.map((t: Transaction) => {
+                let transactionDate = t.created_at
+                    ? new Date(t.created_at)
+                    : t.date
+                    ? new Date(t.date)
+                    : new Date(); // ✅ ถ้าข้อมูลวันที่ผิดพลาด ใช้วันที่ปัจจุบันแทน
 
-            console.log("🔢 Transactions (หลังจากแปลงค่า):", transactions); // ✅ Debug ดูค่า
+                return {
+                    ...t,
+                    amount: Number(t.amount) || 0,
+                    date: transactionDate.toISOString().split("T")[0], // แปลงวันที่เป็น YYYY-MM-DD
+                    timestamp: transactionDate.getTime(),
+                    category: t.category ?? "ไม่ระบุหมวดหมู่",
+                    icon: t.icon ?? "❓",
+                };
+            });
 
+            // ✅ เรียงลำดับจากใหม่ไปเก่า (ล่าสุดอยู่บนสุด)
+            transactions.sort((a: Transaction, b: Transaction) => b.timestamp - a.timestamp);
+            console.log("🔢 Transactions (หลังจากแปลงค่า):", transactions);
             setTransactions(transactions);
 
             // ✅ คำนวณรายรับ
@@ -186,12 +203,9 @@ export default function Dashboard() {
             // ✅ คำนวณรายจ่าย
             const expense = transactions
                 .filter((t: Transaction) => t.amount < 0)
-                .reduce(
-                    (sum: number, t: Transaction) => sum + Math.abs(t.amount),
-                    0
-                );
+                .reduce((sum: number, t: Transaction) => sum + Math.abs(t.amount), 0);
 
-            console.log("💰 รายรับ:", income, "💸 รายจ่าย:", expense); // ✅ Debug ดูค่า
+            console.log("💰 รายรับ:", income, "💸 รายจ่าย:", expense);
 
             // ✅ อัปเดตค่าตัวแปร
             setTotalIncome(income);
@@ -199,80 +213,91 @@ export default function Dashboard() {
             setTotalBalance(income - expense);
         } catch (error) {
             console.error("❌ เกิดข้อผิดพลาดในการโหลดธุรกรรม:", error);
+            setTransactions([]); // ป้องกัน UI พัง
         }
     };
+
 
     // ✅ โหลดข้อมูลเมื่อเปิดหน้า และอัปเดตเมื่อมีการเพิ่มธุรกรรม
     useEffect(() => {
         if (userId) {
-            // ✅ โหลดเมื่อ userId มีค่า
-            fetchTransactions();
-            window.addEventListener("transactionAdded", fetchTransactions);
-            return () =>
-                window.removeEventListener(
-                    "transactionAdded",
-                    fetchTransactions
-                );
+            fetchTransactions(); // ✅ โหลดธุรกรรมเมื่อเปิดหน้า
+
+            // ✅ ฟัง event transactionAdded และโหลดข้อมูลใหม่
+            const handleTransactionAdded = () => {
+                console.log("🔄 รับ Event transactionAdded, โหลดข้อมูลใหม่...");
+                fetchTransactions();
+            };
+
+            window.addEventListener("transactionAdded", handleTransactionAdded);
+
+            return () => {
+                window.removeEventListener("transactionAdded", handleTransactionAdded);
+            };
         }
     }, [userId]); // ✅ โหลดใหม่เมื่อ userId เปลี่ยน
+
 
     return (
         <AuthenticatedLayout>
             <Head title="Dashboard" />
 
-        {/* 🔹 ส่วนหัวของหน้า */}
-        <div className="bg-amber-500 text-white p-4 flex justify-between items-center shadow-md">
-            <button className="text-white text-xl">🔍</button>
-            <h2 className="text-lg font-semibold">บัญชีของฉัน</h2>
+            {/* 🔹 ส่วนหัวของหน้า */}
+            <div className="bg-amber-500 text-white p-4 flex justify-between items-center shadow-md">
+                <button className="text-white text-xl">🔍</button>
+                <h2 className="text-lg font-semibold">บัญชีของฉัน</h2>
 
-            {/* 🔹 ปุ่ม "รายละเอียด" + Dropdown Profile */}
-            <div className="flex items-center space-x-4">
-                {/* ปุ่ม รายละเอียด */}
-                <Link
-                    href="/details"
-                    className="bg-white text-amber-500 px-3 py-1 rounded-lg shadow"
-                >
-                    รายละเอียด
-                </Link>
+                {/* 🔹 ปุ่ม "รายละเอียด" + Dropdown Profile */}
+                <div className="flex items-center space-x-4">
+                    {/* ปุ่ม รายละเอียด */}
+                    <Link
+                        href="/details"
+                        className="bg-white text-amber-500 px-3 py-1 rounded-lg shadow"
+                    >
+                        รายละเอียด
+                    </Link>
 
-                {/*{/* Dropdown Profile */}
-                <Dropdown>
-                    <Dropdown.Trigger>
-                        <span className="inline-flex rounded-md">
-                            <button
-                                type="button"
-                                className="inline-flex items-center rounded-md border border-transparent bg-white px-3 py-1 text-sm font-medium text-amber-500 transition duration-150 ease-in-out hover:text-amber-700 focus:outline-none"
-                            >
-                                {auth.user.name} {/* ✅ ใช้ user.name */}
-                                <svg
-                                    className="-me-0.5 ms-2 h-4 w-4"
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    viewBox="0 0 20 20"
-                                    fill="currentColor"
+                    {/*{/* Dropdown Profile */}
+                    <Dropdown>
+                        <Dropdown.Trigger>
+                            <span className="inline-flex rounded-md">
+                                <button
+                                    type="button"
+                                    className="inline-flex items-center rounded-md border border-transparent bg-white px-3 py-1 text-sm font-medium text-amber-500 transition duration-150 ease-in-out hover:text-amber-700 focus:outline-none"
                                 >
-                                    <path
-                                        fillRule="evenodd"
-                                        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                                        clipRule="evenodd"
-                                    />
-                                </svg>
-                            </button>
-                        </span>
-                    </Dropdown.Trigger>
+                                    {auth.user.name} {/* ✅ ใช้ user.name */}
+                                    <svg
+                                        className="-me-0.5 ms-2 h-4 w-4"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        viewBox="0 0 20 20"
+                                        fill="currentColor"
+                                    >
+                                        <path
+                                            fillRule="evenodd"
+                                            d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                                            clipRule="evenodd"
+                                        />
+                                    </svg>
+                                </button>
+                            </span>
+                        </Dropdown.Trigger>
 
-                    <Dropdown.Content>
-                        {/* ✅ แก้ href ให้เป็นพาธตรง ถ้าฟังก์ชัน route() ใช้งานไม่ได้ */}
-                        <Dropdown.Link href="/profile/edit">
-                            Profile
-                        </Dropdown.Link>
-                        <Dropdown.Link href="/logout" method="post" as="button">
-                            Log Out
-                        </Dropdown.Link>
-                    </Dropdown.Content>
-                </Dropdown>
+                        <Dropdown.Content>
+                            {/* ✅ แก้ href ให้เป็นพาธตรง ถ้าฟังก์ชัน route() ใช้งานไม่ได้ */}
+                            <Dropdown.Link href="/profile/edit">
+                                Profile
+                            </Dropdown.Link>
+                            <Dropdown.Link
+                                href="/logout"
+                                method="post"
+                                as="button"
+                            >
+                                Log Out
+                            </Dropdown.Link>
+                        </Dropdown.Content>
+                    </Dropdown>
+                </div>
             </div>
-        </div>
-
 
             {/* 🔹 เปลี่ยนสีพื้นหลังของหน้า */}
             <div className="min-h-screen bg-amber-100 p-4">

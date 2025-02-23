@@ -14,10 +14,30 @@ export default function Login({
         remember: false as boolean,
     });
 
-    const submit: FormEventHandler = (e) => {
+    const submit: FormEventHandler = async (e) => {
         e.preventDefault();
+
         post(route("login"), {
-            onFinish: () => reset("password"),
+            onSuccess: (page) => {
+                console.log("🔑 Response จาก API:", page);
+
+                // ✅ เช็คว่ามี token หรือไม่
+                const token = (page.props.auth as any)?.token;
+                if (token) {
+                    localStorage.setItem("auth_token", token);
+                    localStorage.setItem("user", JSON.stringify(page.props.auth.user));
+
+                    console.log("✅ Token ถูกบันทึก:", token);
+
+                    // ✅ เปลี่ยนเส้นทางไปยัง Dashboard
+                    window.location.href = "/dashboard";
+                } else {
+                    console.error("❌ ไม่ได้รับ Token จาก API");
+                }
+            },
+            onError: (error) => {
+                console.error("❌ ล็อกอินไม่สำเร็จ:", error);
+            },
         });
     };
 
