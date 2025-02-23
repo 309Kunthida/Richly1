@@ -25,7 +25,8 @@ class TransactionController extends Controller
             ->map(function ($transaction) {
                 return [
                     'id' => $transaction->id,
-                    'category' => $transaction->category->name ?? 'ไม่ระบุหมวดหมู่',
+                    'category_id' => $transaction->category->id ?? null, // ✅ ใช้ category_id
+                    'category' => optional($transaction->category)->name ?? 'ไม่ระบุหมวดหมู่', // ✅ ป้องกัน error
                     'icon' => $transaction->category->icon ?? '❓', // ✅ ใช้ icon จาก `categories`
                     'description' => $transaction->description ?? 'ไม่มีรายละเอียด',
                     'amount' => $transaction->amount,
@@ -35,8 +36,11 @@ class TransactionController extends Controller
                 ];
             });
 
+        Log::info('📤 ข้อมูลธุรกรรมที่ส่งกลับไป:', $transactions->toArray());
+
         return response()->json(['transactions' => $transactions]);
     }
+
 
 
     /**
@@ -163,7 +167,7 @@ class TransactionController extends Controller
      */
     public function show(string $id)
     {
-        
+
         $transaction = Transaction::find($id);
 
         if (!$transaction) {
@@ -190,10 +194,14 @@ class TransactionController extends Controller
             'amount' => 'required|numeric',
         ]);
 
+        Log::info('📥 อัปเดตธุรกรรม: ', $request->all());
+        // ✅ ตรวจสอบและบันทึกข้อมูลทั้งหมดในครั้งเดียว
         $transaction->description = $request->description;
         $transaction->amount = $request->amount;
-        $transaction->save();
+        $transaction->category_id = $request->category_id; // ✅ ย้ายมาก่อน save()
+        $transaction->save(); // ✅ บันทึกครั้งเดียว
 
+        Log::info('✅ ข้อมูลธุรกรรมที่ถูกอัปเดต:', $transaction->toArray()); // ✅ ตรวจสอบค่าหลังบันทึก
         return response()->json(['message' => 'อัปเดตรายการสำเร็จ', 'transaction' => $transaction]);
     }
 

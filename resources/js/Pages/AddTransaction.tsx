@@ -7,7 +7,7 @@ const expenseCategories = [
     { id: 2, name: "การเดินทาง", icon: "🚗" },
     { id: 3, name: "ที่อยู่อาศัย", icon: "🏠" },
     { id: 4, name: "ของใช้", icon: "🛒" },
-    { id: 5, name: "อื่นๆ", icon: "🛠️" },
+    { id: 5, name: "อื่นๆ", icon: "💡" },
 ];
 
 const incomeCategories = [
@@ -39,6 +39,8 @@ const AddTransaction = () => {
                 .get(`/transactions/${transactionId}`)
                 .then((response) => {
                     const data = response.data;
+                    console.log("🔍 หมวดหมู่ที่โหลดมา:", data.category_id);
+
                     setAmount(Math.abs(data.amount).toString());
                     setNote(data.description);
                     setTransactionType(data.amount < 0 ? "expense" : "income");
@@ -65,6 +67,7 @@ const AddTransaction = () => {
         }
     }, [transactionId]);
     useEffect(() => {
+        console.log("📢 หมวดหมู่ที่เลือก:", category);
         const newCategoryList =
             transactionType === "expense"
                 ? expenseCategories
@@ -147,6 +150,7 @@ const AddTransaction = () => {
         };
 
         console.log("📤 กำลังส่งข้อมูลไปยังเซิร์ฟเวอร์:", transactionData);
+
 
         try {
             let response;
