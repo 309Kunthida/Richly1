@@ -51,7 +51,7 @@ const Summary = () => {
                 {/* 🔙 ปุ่มย้อนกลับ */}
                 <Link
                     href="/dashboard"
-                    className="absolute top-4 left-4 bg-amber-300 text-white px-4 py-2 rounded-lg shadow-md hover:bg-amber-600 transition duration-300"
+                    className="absolute top-4 left-4 bg-amber-300 text-white px-4 py-2 rounded-lg shadow-md hover:bg-amber-500 transition duration-300"
                 >
                     🔙
                 </Link>

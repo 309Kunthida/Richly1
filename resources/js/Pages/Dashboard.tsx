@@ -255,7 +255,6 @@ export default function Dashboard() {
 
                 {/* 🔹 ปุ่ม "รายละเอียด" + Dropdown Profile */}
                 <div className="flex items-center space-x-4">
-                    {/* ปุ่ม รายละเอียด */}
                 </div>
 
                 {/* 🔹 Dropdown Profile + รายละเอียด */}
