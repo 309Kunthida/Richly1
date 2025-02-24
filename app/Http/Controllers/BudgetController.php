@@ -55,14 +55,16 @@ class BudgetController extends Controller
     public function index(Request $request)
     {
         try {
-            $userId = Auth::id(); // ✅ ดึง user_id ปัจจุบัน
-
+            $userId = Auth::id();
             if (!$userId) {
                 return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
             }
 
-            // ✅ ดึงงบประมาณที่เกี่ยวข้องกับ user_id นี้
-            $budgets = Budget::where('user_id', $userId)->get();
+            // ✅ ดึงข้อมูลหมวดหมู่จากตาราง categories
+            $budgets = Budget::where('user_id', $userId)
+                ->join('categories', 'budgets.category_id', '=', 'categories.id')
+                ->select('budgets.*', 'categories.name as category_name') // ✅ เพิ่มชื่อหมวดหมู่
+                ->get();
 
             return response()->json([
                 'success' => true,
@@ -75,6 +77,7 @@ class BudgetController extends Controller
             ], 500);
         }
     }
+
     // ✅ ดึงข้อมูลงบประมาณเดิม
     public function show($id)
     {
@@ -134,5 +137,27 @@ class BudgetController extends Controller
             ], 500);
         }
     }
+
+    // ✅ ลบงบประมาณ
+    public function destroy($id)
+{
+    try {
+        $budget = Budget::where('id', $id)->where('user_id', Auth::id())->first();
+
+        if (!$budget) {
+            return response()->json(['success' => false, 'message' => 'ไม่พบนงบประมาณ'], 404);
+        }
+
+        $budget->delete();
+
+        return response()->json(['success' => true, 'message' => 'ลบงบประมาณสำเร็จ!']);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'เกิดข้อผิดพลาด: ' . $e->getMessage(),
+        ], 500);
+    }
+}
+
 
 }

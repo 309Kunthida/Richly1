@@ -1,35 +1,53 @@
 import { useState } from "react";
 import axios from "axios";
 
-
+// ✅ ประกาศ BudgetType
+type BudgetType = {
+    id: number;
+    category_id: number;
+    category_name?: string; // อาจจะไม่มีค่ากรณีเพิ่มใหม่
+    amount_limit: number;
+    amount_spent?: number; // อาจจะไม่มีค่ากรณีเพิ่มใหม่
+    start_date: string;
+    end_date: string;
+};
 type AddBudgetProps = {
     onClose: () => void;
     onBudgetAdded: () => void;
+    budget?: BudgetType | null;
 };
 
-const AddBudget: React.FC<AddBudgetProps> = ({ onClose, onBudgetAdded }) => {
-    const [categoryId, setCategoryId] = useState<number | "">("");
-    const [amount, setAmount] = useState<number | "">("");
-    const [startDate, setStartDate] = useState("");
-    const [endDate, setEndDate] = useState("");
+const AddBudget: React.FC<AddBudgetProps> = ({ onClose, onBudgetAdded, budget }) => {
+    const [categoryId, setCategoryId] = useState<number | "">(budget?.category_id || "");
+    const [amount, setAmount] = useState<number | "">(budget?.amount_limit || "");
+    const [startDate, setStartDate] = useState(budget?.start_date || "");
+    const [endDate, setEndDate] = useState(budget?.end_date || "");
 
     const handleSubmit = async () => {
         try {
-            await axios.post("/api/budgets", {
+            const budgetData = {
                 category_id: Number(categoryId),
                 amount_limit: Number(amount),
                 start_date: startDate,
                 end_date: endDate,
-            });
+            };
 
-            alert("เพิ่มงบประมาณสำเร็จ!");
-            onBudgetAdded(); // ✅ โหลดข้อมูลใหม่
-            onClose(); // ✅ ปิดฟอร์ม
+            if (budget?.id) {
+                // ✅ อัปเดตงบประมาณ
+                await axios.put(`/api/budgets/${budget.id}`, budgetData);
+                alert("✅ อัปเดตงบประมาณสำเร็จ!");
+            } else {
+                // ✅ เพิ่มงบประมาณใหม่
+                await axios.post("/api/budgets", budgetData);
+                alert("✅ เพิ่มงบประมาณสำเร็จ!");
+            }
+
+            onBudgetAdded();
+            onClose();
         } catch (error) {
             console.error("❌ Error:", error);
         }
     };
-
     return (
         <div className="bg-white p-6 rounded-lg shadow-lg max-w-lg">
             <h2 className="text-xl font-bold mb-4">เพิ่มงบประมาณ</h2>

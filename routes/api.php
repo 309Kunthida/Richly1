@@ -40,4 +40,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/budgets', [BudgetController::class, 'index']); // ✅ ดึงข้อมูลงบประมาณทั้งหมด
     Route::post('/budgets', [BudgetController::class, 'store']); // ✅ เพิ่มงบประมาณ
 });
+Route::middleware('auth:sanctum')->group(function () {
+    Route::delete('/budgets/{id}', [BudgetController::class, 'destroy']);
+});
 
