@@ -1,10 +1,12 @@
 <?php
-
+use Inertia\Inertia;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\BudgetController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\SummaryController;
+use App\Http\Controllers\AuthController;
 
 // ✅ ใช้ Middleware `auth:sanctum` เพื่อให้ API ใช้ได้เฉพาะ User ที่ล็อกอิน
 Route::middleware('auth:sanctum')->group(function () {
@@ -26,4 +28,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ✅ API สำหรับอัปเดตรายงาน
     Route::post('/reports/update', [ReportsController::class, 'updateReport']);
+
+    Route::middleware('auth:sanctum')->get('/transactions', [TransactionController::class, 'index']);
+    Route::get('/summary', [SummaryController::class, 'getSummaryData']);
+
 });

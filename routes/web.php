@@ -7,7 +7,6 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\TransactionController;
 
 
-
 // ✅ หน้า Home
 Route::get('/', function () {
     return Inertia::render('Home');
@@ -25,6 +24,10 @@ Route::middleware(['auth'])->group(function () {
     // ✅ หน้าแก้ไข Profile
     Route::get('/profile/edit', [ProfileController::class, 'edit'])->name('profile.edit');
 });
+
+Route::get('/summary', function () {
+    return Inertia::render('Summary');
+})->name('summary');
 
 // ✅ ต้องใช้ `auth.php` สำหรับ Authentication Routes (Register, Forgot Password, Reset Password)
 require __DIR__.'/auth.php';

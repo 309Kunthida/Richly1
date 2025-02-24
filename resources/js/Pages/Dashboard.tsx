@@ -191,7 +191,9 @@ export default function Dashboard() {
             });
 
             // ✅ เรียงลำดับจากใหม่ไปเก่า (ล่าสุดอยู่บนสุด)
-            transactions.sort((a: Transaction, b: Transaction) => b.timestamp - a.timestamp);
+            transactions.sort(
+                (a: Transaction, b: Transaction) => b.timestamp - a.timestamp
+            );
             console.log("🔢 Transactions (หลังจากแปลงค่า):", transactions);
             setTransactions(transactions);
 
@@ -203,7 +205,10 @@ export default function Dashboard() {
             // ✅ คำนวณรายจ่าย
             const expense = transactions
                 .filter((t: Transaction) => t.amount < 0)
-                .reduce((sum: number, t: Transaction) => sum + Math.abs(t.amount), 0);
+                .reduce(
+                    (sum: number, t: Transaction) => sum + Math.abs(t.amount),
+                    0
+                );
 
             console.log("💰 รายรับ:", income, "💸 รายจ่าย:", expense);
 
@@ -216,7 +221,6 @@ export default function Dashboard() {
             setTransactions([]); // ป้องกัน UI พัง
         }
     };
-
 
     // ✅ โหลดข้อมูลเมื่อเปิดหน้า และอัปเดตเมื่อมีการเพิ่มธุรกรรม
     useEffect(() => {
@@ -232,11 +236,13 @@ export default function Dashboard() {
             window.addEventListener("transactionAdded", handleTransactionAdded);
 
             return () => {
-                window.removeEventListener("transactionAdded", handleTransactionAdded);
+                window.removeEventListener(
+                    "transactionAdded",
+                    handleTransactionAdded
+                );
             };
         }
     }, [userId]); // ✅ โหลดใหม่เมื่อ userId เปลี่ยน
-
 
     return (
         <AuthenticatedLayout>
@@ -250,14 +256,10 @@ export default function Dashboard() {
                 {/* 🔹 ปุ่ม "รายละเอียด" + Dropdown Profile */}
                 <div className="flex items-center space-x-4">
                     {/* ปุ่ม รายละเอียด */}
-                    <Link
-                        href="/details"
-                        className="bg-white text-amber-500 px-3 py-1 rounded-lg shadow"
-                    >
-                        รายละเอียด
-                    </Link>
+                </div>
 
-                    {/*{/* Dropdown Profile */}
+                {/* 🔹 Dropdown Profile + รายละเอียด */}
+                <div className="flex items-center space-x-4">
                     <Dropdown>
                         <Dropdown.Trigger>
                             <span className="inline-flex rounded-md">
@@ -265,7 +267,7 @@ export default function Dashboard() {
                                     type="button"
                                     className="inline-flex items-center rounded-md border border-transparent bg-white px-3 py-1 text-sm font-medium text-amber-500 transition duration-150 ease-in-out hover:text-amber-700 focus:outline-none"
                                 >
-                                    {auth.user.name} {/* ✅ ใช้ user.name */}
+                                    {auth.user.name}
                                     <svg
                                         className="-me-0.5 ms-2 h-4 w-4"
                                         xmlns="http://www.w3.org/2000/svg"
@@ -283,10 +285,15 @@ export default function Dashboard() {
                         </Dropdown.Trigger>
 
                         <Dropdown.Content>
-                            {/* ✅ แก้ href ให้เป็นพาธตรง ถ้าฟังก์ชัน route() ใช้งานไม่ได้ */}
                             <Dropdown.Link href="/profile/edit">
                                 Profile
                             </Dropdown.Link>
+
+                            {/* ✅ เพิ่มปุ่มสรุปรายละเอียดกลับมา */}
+                            <Dropdown.Link href="/summary">
+                                สรุปรายละเอียด
+                            </Dropdown.Link>
+
                             <Dropdown.Link
                                 href="/logout"
                                 method="post"
