@@ -75,6 +75,64 @@ class BudgetController extends Controller
             ], 500);
         }
     }
+    // ✅ ดึงข้อมูลงบประมาณเดิม
+    public function show($id)
+    {
+        try {
+            $budget = Budget::where('id', $id)
+                            ->where('user_id', Auth::id()) // ✅ ให้ดึงเฉพาะของ user นี้
+                            ->first();
 
+            if (!$budget) {
+                return response()->json(['success' => false, 'message' => 'ไม่พบนงบประมาณ'], 404);
+            }
+
+            return response()->json(['success' => true, 'budget' => $budget]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'เกิดข้อผิดพลาด: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    // ✅ อัปเดตงบประมาณ
+    public function update(Request $request, $id)
+    {
+        try {
+            $validated = $request->validate([
+                'category_id'  => 'required|integer|exists:categories,id',
+                'amount_limit' => 'required|numeric|min:0',
+                'start_date'   => 'required|date',
+                'end_date'     => 'required|date|after_or_equal:start_date',
+            ]);
+
+            $budget = Budget::where('id', $id)
+                            ->where('user_id', Auth::id()) // ✅ ให้แก้ไขเฉพาะของ user นี้
+                            ->first();
+
+            if (!$budget) {
+                return response()->json(['success' => false, 'message' => 'ไม่พบนงบประมาณ'], 404);
+            }
+
+            $budget->update([
+                'category_id'  => $validated['category_id'],
+                'amount_limit' => $validated['amount_limit'],
+                'start_date'   => $validated['start_date'],
+                'end_date'     => $validated['end_date'],
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'อัปเดตงบประมาณสำเร็จ!',
+                'budget'  => $budget
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'เกิดข้อผิดพลาด: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
 
 }

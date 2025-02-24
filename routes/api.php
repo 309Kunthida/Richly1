@@ -32,4 +32,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('auth:sanctum')->get('/transactions', [TransactionController::class, 'index']);
     Route::get('/summary', [SummaryController::class, 'getSummaryData']);
 
+});Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/budgets/{id}', [BudgetController::class, 'show']); // ✅ ดึงข้อมูลงบประมาณตาม ID
+    Route::put('/budgets/{id}', [BudgetController::class, 'update']); // ✅ อัปเดตงบประมาณ
+});
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/budgets', [BudgetController::class, 'index']); // ✅ ดึงงบประมาณ
+    Route::post('/budgets', [BudgetController::class, 'store']); // ✅ เพิ่มงบประมาณ
 });

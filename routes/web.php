@@ -29,5 +29,11 @@ Route::get('/summary', function () {
     return Inertia::render('Summary');
 })->name('summary');
 
+use App\Http\Controllers\BudgetController;
+
+Route::get('/budget', function () {
+    return Inertia::render('AddBudget');
+});
+
 // ✅ ต้องใช้ `auth.php` สำหรับ Authentication Routes (Register, Forgot Password, Reset Password)
 require __DIR__.'/auth.php';

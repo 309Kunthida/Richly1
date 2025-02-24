@@ -254,8 +254,7 @@ export default function Dashboard() {
                 <h2 className="text-lg font-semibold">บัญชีของฉัน</h2>
 
                 {/* 🔹 ปุ่ม "รายละเอียด" + Dropdown Profile */}
-                <div className="flex items-center space-x-4">
-                </div>
+                <div className="flex items-center space-x-4"></div>
 
                 {/* 🔹 Dropdown Profile + รายละเอียด */}
                 <div className="flex items-center space-x-4">
@@ -285,12 +284,16 @@ export default function Dashboard() {
 
                         <Dropdown.Content>
                             <Dropdown.Link href="/profile/edit">
-                                Profile
+                                โปรไฟล์
                             </Dropdown.Link>
 
                             {/* ✅ เพิ่มปุ่มสรุปรายละเอียดกลับมา */}
                             <Dropdown.Link href="/summary">
-                                สรุปรายละเอียด
+                                สรุปรายรับ-รายจ่าย
+                            </Dropdown.Link>
+                            {/* ✅ เพิ่มปุ่มสรุปรายละเอียดกลับมา */}
+                            <Dropdown.Link href="/budget">
+                                งบประมาณ
                             </Dropdown.Link>
 
                             <Dropdown.Link
@@ -298,7 +301,7 @@ export default function Dashboard() {
                                 method="post"
                                 as="button"
                             >
-                                Log Out
+                                ออกจากระบบ
                             </Dropdown.Link>
                         </Dropdown.Content>
                     </Dropdown>
