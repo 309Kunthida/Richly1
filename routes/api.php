@@ -37,6 +37,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/budgets/{id}', [BudgetController::class, 'update']); // ✅ อัปเดตงบประมาณ
 });
 Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/budgets', [BudgetController::class, 'index']); // ✅ ดึงงบประมาณ
+    Route::get('/budgets', [BudgetController::class, 'index']); // ✅ ดึงข้อมูลงบประมาณทั้งหมด
     Route::post('/budgets', [BudgetController::class, 'store']); // ✅ เพิ่มงบประมาณ
 });
+

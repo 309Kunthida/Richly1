@@ -81,7 +81,7 @@ const Summary = () => {
                             data={data}
                             cx="50%"
                             cy="50%"
-                            outerRadius={150} // ✅ ขนาดสมดุล
+                            outerRadius={120} // ✅ ขนาดสมดุล
                             fill="#8884d8"
                             dataKey="total"
                             nameKey="category"
